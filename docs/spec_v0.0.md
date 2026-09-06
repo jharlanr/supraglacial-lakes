@@ -199,3 +199,56 @@ and both labellers call them one lake (Josh 4/5, Claude 3/5 with one slush "can'
 per-scene closing) instead of 150 m.** It keeps every lid join both labellers endorse, drops most of the wrong ones,
 and creates no new false split at the gaps where the labellers disagree. Not applied yet (Josh's call; one 08e rerun
 with `SITE_CLOSE_PX=5`). Registry after the core rule (§1b): 294 sites, Dunmire recall unchanged (139/139, 215/217).
+
+### 8b. Decision, 2026-09-05 22:00 PDT (Josh): the appendage rule replaces the flat 150 m closing
+
+Two bodies of water in the ten-season union are one site if (1) they are within 50 m of each other (the ice-lid case,
+same radius as the per-scene closing), or (2) they are within 150 m and the smaller is less than one fifth of the
+larger (an appendage: a tail, a spur, a pond hanging off a lake, which does not merit its own ID). Otherwise they are
+separate sites with separate IDs. Inputs: gap and size ratio only. On tile 19_39 the three appendage joins are at 6–12 %
+of their lake and the smallest genuine pair is at 30 %, so one fifth sorts every labelled case the way both labellers
+did except the two Josh-one/Claude-two judgment calls. To implement in 08e (replace the single `SITE_CLOSE_PX`
+closing): closing at 5 px → provisional sites; then for each pair of provisional sites within 15 px, merge if
+min(area)/max(area) < 0.2; rebuild 19_39 and score against `out/11_labels_both_19_39.csv`; 29_45 inherits it.
+
+### 8c. Appendage rule implemented and scored (2026-09-06, `scripts/08e` + `scripts/11e_score_rule.py`, `out/11_rule_scores_19_39.txt`)
+
+08e no longer closes at the site level: union pieces are joined by distance (`JOIN_ALL_M`, default 50) or by distance and
+size ratio (`JOIN_APP_M`, `APP_RATIO`); the joins are logged in `out/09_joins_{TILE}.csv`. Scored on the 105 labelled cases
+(label 3 excluded per labeller; "agree" = the rule joins exactly the cases that labeller called one lake):
+
+| setting | Josh | Claude | note |
+|---|---|---|---|
+| 50 m always, 150 m if < 1/5 | 88/103 (85 %) | 86/94 (91 %) | only 1 appendage join fires; two of Josh's three appendages sit at 187 and 190 m |
+| 50 m, 200 m if < 1/5 | 90/103 (87 %) | 86/94 (91 %) | picks up both |
+| 50 m, 250 m if < 1/5 | 91/103 (88 %) | 87/94 (93 %) | also joins the drained-lake moat pair G00258/G00256 that both labellers called one lake |
+| old flat 150 m closing | 88/103 (85 %) | 83/94 (88 %) | for reference |
+
+The ratio (1/5 vs 1/4) changes nothing on this tile. The remaining disagreements are pairs Josh joins at 300–950 m
+(no distance rule reaches them) and three channel-linked lakes joined by the union itself (G00077, G00092, G00199),
+which no distance rule can split. Registry on disk at the time of writing: 150 m setting, 306 sites, Dunmire recall
+139/139 and 215/217 (one lake per year now spans two sites). Awaiting Josh's pick of the appendage distance.
+
+## 9. Tile 29_45 result (NE Greenland, 2026-09-06, built with the old 150 m closing + core rule; `out/09_sites_29_45.*`)
+
+Ten seasons, 1 643–2 409 scenes each; per-season area swings from 38 km² (2018) to 185 km² (2023). 309 sites, 359 km².
+Dunmire recall: 2018 108/109, 2019 217/217, none split. Persistence bimodal again (52 sites all ten seasons, 40 one).
+DEM correlation weaker than CW: 55 % of centroids in a 32 m depression (66 % on 19_39), 34 % of sites entirely outside
+one (24 %); by size 20 % below 0.1 km² rising to 76 % above 1 km². Elongated NE–SW sites along the NEGIS shear margin
+are real flow-stripe lakes. The recipe is not tuned to 19_39: recall is as good on a tile with a different climate,
+orbit geometry and terrain. Rebuild with the appendage rule once its distance is chosen.
+
+## 10. Visual check and two review flags (2026-09-06 afternoon; `scripts/12a_truecolor_fetch.py`, `12b_truecolor_figs.py`)
+
+Josh's decision: appendage rule at 50 m / 250 m / one fifth (08e defaults). Both registries rebuilt: 19_39 303 sites
+(5 lid + 4 appendage joins), 29_45 320 sites (8 + 11); Dunmire recall unchanged. Visual check: six 12 km windows per
+tile where sites are densest, each on the wettest clear scene of its two wettest seasons (cloud probability inside the
+window < 20 %, July–mid-September, water counted only inside the window's own outlines), site outlines in red with the
+serial on every polygon part (`out/12_truecolor/{TILE}_w{k}.png`). Reading: on clear windows every outline is one lake
+and the outline holds while the water inside changes between years; ten-season outlines include slush aprons around
+lakes in slush zones (jagged perimeters, e.g. 19_39 serials 238, 247, 283) — the water-seen footprint, by design.
+Two per-site review flags, attributes not rules: `ice_marginal` (site within 300 m of non-ice on the BedMachine mask;
+2 on 19_39, 19 on 29_45 — fjord and ice-dammed water at nunataks and the coast, whether they belong in a supraglacial
+registry is a scope call), and `thin` (widest point ≤ 60 m; catches line-like sites such as 19_39 serial 214, a
+100 m wide, 1.5 km straight strip that passed the 50 m core rule). `elongation` (P²/4πA) is reported too but measures
+jaggedness, not linearity.

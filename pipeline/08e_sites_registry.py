@@ -1,11 +1,11 @@
 """Ten-season lake sites + registry for one tile (v0.0 recipe, notes/spec_v0.0_lake_sites.md):
 per-year outlines from the 08b counts (TOA NDWI>0.5, any scene, closing 5 px, >=0.05 km2, fill>=0.5) ->
-union over seasons -> site closing (SITE_CLOSE_PX, default 15 = 150 m) -> sites >= 0.05 km2 ->
+union over seasons -> pieces joined by the appendage rule (gap <= 50 m always; gap <= 250 m if the smaller is < 1/5 of the larger; spec 8b) -> sites ->
 registry (ID = centroid lat/lon at registration), per-year presence and area, DEM attributes (32 m sinks /
 sub-basins / depth from 04b, reported not enforced), crosswalk to Dunmire 2018/2019, figures.
 Outputs: out/09_sites_{TILE}.geojson, out/09_registry_{TILE}.csv, out/09_site_years_{TILE}.csv,
          out/09_dunmire_crosswalk_{TILE}.csv, out/09_sites_{TILE}.txt, out/09_sites_{TILE}_{map,showcase,stats}.png
-Run:  nice -n 15 $(cat .python_env) scripts/08e_sites_registry.py        (TILE=19_39)
+Run:  nice -n 15 $(cat .python_env) scripts/08e_sites_registry.py        (TILE=19_39; JOIN_ALL_M=50 JOIN_APP_M=250 APP_RATIO=0.2)
 """
 import os, json, glob, time
 import numpy as np, pandas as pd, geopandas as gpd
@@ -17,7 +17,7 @@ from shapely.ops import unary_union
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.colors import LightSource
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "out")
-TILE = os.environ.get("TILE", "19_39"); SITE_CLOSE = int(os.environ.get("SITE_CLOSE_PX", "15")); MIN_PX = 500; FILL = 0.5
+TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); MIN_PX = 500; FILL = 0.5
 pref = f"08_s2counts_{TILE}_"
 years = sorted(int(os.path.basename(f)[len(pref):].split("_")[0]) for f in glob.glob(os.path.join(OUT, pref + "*_meta.json")))
 meta = json.load(open(os.path.join(OUT, f"{pref}{years[0]}_meta.json"))); tr = Affine(*meta["transform"]); N = meta["shape"][0]
@@ -25,7 +25,7 @@ x0, y0, x1, y1 = meta["x0"], meta["y0"], meta["x1"], meta["y1"]
 S8 = np.ones((3, 3), bool)
 def disk(r):
     y, x = np.ogrid[-r:r + 1, -r:r + 1]; return (x * x + y * y) <= r * r
-lines = [f"Sites v0.0, tile {TILE}, seasons {years}, site closing {SITE_CLOSE} px — {time.strftime('%Y-%m-%d %H:%M %Z')}"]
+lines = [f"Sites v0.0, tile {TILE}, seasons {years}, appendage rule {JOIN_ALL_M:.0f} m / {JOIN_APP_M:.0f} m / ratio {APP_RATIO} — {time.strftime('%Y-%m-%d %H:%M %Z')}"]
 def say(s): print(s); lines.append(s)
 
 # 0. domain: the ice sheet (BedMachine v6 mask, grounded + floating ice, from 08g), nearest-upsampled to the 10 m grid
@@ -55,10 +55,35 @@ pd.DataFrame(yrows).to_csv(os.path.join(OUT, f"09_year_outlines_{TILE}.csv"), in
 # 2. sites
 union = np.zeros((N, N), bool)
 for y in years: union |= ylab[y] > 0
-u = ndi.binary_closing(union, structure=disk(SITE_CLOSE)) if SITE_CLOSE else union
-slab, _ = ndi.label(u, structure=S8); spx = np.bincount(slab.ravel()); ids = np.flatnonzero(spx >= MIN_PX); ids = ids[ids > 0]
+# appendage rule (spec 8b, Josh 2026-09-05): union pieces are one site if their gap <= JOIN_ALL_M (ice-lid case), or if the gap
+# is <= JOIN_APP_M and the smaller piece is under APP_RATIO of the larger (an appendage); otherwise separate sites. No site-level closing.
+plab, npieces = ndi.label(union, structure=S8); ppx = np.bincount(plab.ravel())
+pgeom = {}
+for geom, val in shapes(plab.astype(np.int32), mask=plab > 0, transform=tr): pgeom.setdefault(int(val), []).append(shape(geom))
+pg = gpd.GeoDataFrame({"piece": list(pgeom)}, geometry=[unary_union(v) for v in pgeom.values()], crs=3413); pg["px"] = ppx[pg.piece.values]
+parent = {int(p): int(p) for p in pg.piece}
+def find(a):
+    while parent[a] != a: parent[a] = parent[parent[a]]; a = parent[a]
+    return a
+sidx = pg.sindex; n_all = n_app = 0; joins = []
+for i, r in pg.iterrows():
+    for j in sidx.query(r.geometry.buffer(JOIN_APP_M), predicate="intersects"):
+        q = pg.iloc[j]
+        if int(q.piece) <= int(r.piece): continue
+        d = r.geometry.distance(q.geometry); ratio = min(r.px, q.px) / max(r.px, q.px)
+        if d <= JOIN_ALL_M: kind = "lid"
+        elif d <= JOIN_APP_M and ratio < APP_RATIO: kind = "appendage"
+        else: continue
+        a, b = find(int(r.piece)), find(int(q.piece))
+        if a != b: parent[b] = a
+        joins.append(dict(piece_a=int(r.piece), piece_b=int(q.piece), gap_m=round(d), ratio=round(ratio, 3), kind=kind)); n_all += kind == "lid"; n_app += kind == "appendage"
+root = {int(p): find(int(p)) for p in pg.piece}; site_of_root = {rt: k + 1 for k, rt in enumerate(sorted(set(root.values())))}
+lut = np.zeros(npieces + 1, np.int32)
+for p, rt in root.items(): lut[p] = site_of_root[rt]
+slab = lut[plab]; spx = np.bincount(slab.ravel()); ids = np.flatnonzero(spx >= MIN_PX); ids = ids[ids > 0]
 slab = np.where(np.isin(slab, ids), slab, 0)
-say(f"sites: {len(ids)}, total {spx[ids].sum()*1e-4:.1f} km2 (union before closing {union.sum()*1e-4:.1f} km2)")
+pd.DataFrame(joins).to_csv(os.path.join(OUT, f"09_joins_{TILE}.csv"), index=False)
+say(f"sites: {len(ids)} from {npieces} union pieces; {n_all} lid joins (gap <= {JOIN_ALL_M} m), {n_app} appendage joins (gap <= {JOIN_APP_M} m, ratio < {APP_RATIO}); total {spx[ids].sum()*1e-4:.1f} km2")
 
 # 3. per-site per-year presence and water area (water = that year's outline pixels inside the site)
 pres = {}
@@ -85,6 +110,8 @@ frac_sink = ndi.mean((sinks > 0).astype(float), slab, ids); maxdepth = ndi.maxim
 main_sub = []
 for i in ids:
     s = subs[slab == i]; s = s[s > 0]; main_sub.append(int(np.bincount(s).argmax()) if s.size else 0)
+edge = ndi.distance_transform_edt(ice) * 10.0; ice_edge_m = ndi.minimum(edge, slab, ids)
+halfw = ndi.maximum(ndi.distance_transform_edt(slab > 0) * 10.0, slab, ids)  # widest point of the site (m); <= 60 m flags line-like sites for review  # distance from the site's nearest pixel to non-ice (BedMachine mask)
 cy, cx = zip(*ndi.center_of_mass(slab > 0, slab, ids)); cxg = np.array([tr * (c, r) for r, c in zip(cy, cx)])
 cent_in_sink = sinks[np.clip(np.array(cy).astype(int), 0, N - 1), np.clip(np.array(cx).astype(int), 0, N - 1)] > 0
 
@@ -93,6 +120,7 @@ polys = {}
 for geom, val in shapes(slab.astype("int32"), mask=slab > 0, transform=tr):
     polys.setdefault(int(val), []).append(shape(geom))
 gdf = gpd.GeoDataFrame({"site": ids}, geometry=[unary_union(polys[i]) for i in ids], crs=3413)
+elong = np.round((gdf.length ** 2 / (4 * np.pi * gdf.area)).values, 1)  # shape index: 1 = circle; > 15 flags line-like sites for review
 ll = gpd.GeoSeries(gpd.points_from_xy(cxg[:, 0], cxg[:, 1]), crs=3413).to_crs(4326)
 def mkid(serial, lat, lon):  # Josh's convention 2026-09-05: G<serial 5 digits>_<N|S><lat*1e4, 6 digits>_<E|W><lon*1e4, 7 digits>
     return f"G{serial:05d}_{'N' if lat >= 0 else 'S'}{round(abs(lat)*1e4):06d}_{'E' if lon >= 0 else 'W'}{round(abs(lon)*1e4):07d}"
@@ -106,7 +134,7 @@ for k, sid in enumerate(site_id):
 reg = pd.DataFrame(dict(site_id=site_id, serial=serial, site=ids, lat=np.round(ll.y.values, 5), lon=np.round(ll.x.values, 5), x3413=np.round(cxg[:, 0]), y3413=np.round(cxg[:, 1]),
                         area_km2=np.round(spx[ids] * 1e-4, 4), n_years=nyears, first_seen=first, last_seen=last,
                         max_year_area_km2=np.round(np.max([pres[y][ids] for y in years], axis=0) * 1e-4, 4),
-                        dem_frac_in_sink=np.round(frac_sink, 3), dem_centroid_in_sink=cent_in_sink, dem_max_depth_m=np.round(maxdepth, 1), dem_main_subbasin=main_sub,
+                        ice_edge_m=np.round(ice_edge_m), ice_marginal=ice_edge_m < 300, max_halfwidth_m=np.round(halfw), thin=halfw <= 60, elongation=elong, dem_frac_in_sink=np.round(frac_sink, 3), dem_centroid_in_sink=cent_in_sink, dem_max_depth_m=np.round(maxdepth, 1), dem_main_subbasin=main_sub,
                         registered="v0.0-" + time.strftime("%Y-%m-%d"), basis=f"S2 {years[0]}-{years[-1]}"))
 gdf = gdf.merge(reg, on="site"); gdf.to_crs(4326).to_file(os.path.join(OUT, f"09_sites_{TILE}.geojson"), driver="GeoJSON")
 reg.to_csv(os.path.join(OUT, f"09_registry_{TILE}.csv"), index=False); site_years.merge(reg[["site", "site_id"]]).to_csv(os.path.join(OUT, f"09_site_years_{TILE}.csv"), index=False)
@@ -126,6 +154,7 @@ for y in (2018, 2019):
     g = xw[xw.year == y]; say(f"Dunmire {y}: {len(g)} lakes in tile; {int((g.frac>0).sum())} touch a site, {int((g.frac>=0.5).sum())} covered >=50 %, {int((g.n_sites>=2).sum())} span >=2 sites; sites holding >=2 {y} lakes: {int((g[g.frac>0].groupby('site_id').size()>=2).sum())}")
 
 # 7. stats
+say(f"ice-marginal sites (within 300 m of non-ice): {int((ice_edge_m < 300).sum())}; thin sites (widest point <= 60 m): {int((halfw <= 60).sum())}")
 say(f"sites by years present (of {len(years)}): " + ", ".join(f"{k}:{v}" for k, v in sorted(pd.Series(nyears).value_counts().items())))
 say(f"sites with centroid in a 32 m depression: {cent_in_sink.mean()*100:.0f} %; with >=50 % of area in one: {(frac_sink>=0.5).mean()*100:.0f} %; entirely outside: {(frac_sink==0).mean()*100:.0f} %")
 for lo, hi in ((0, 0.1), (0.1, 0.2), (0.2, 0.5), (0.5, 1), (1, 100)):

@@ -10,8 +10,13 @@ for two seasons; the ten-season build of that tile is in progress. Private until
 - **Outline (per year):** the seasonal maximum extent of water in one melt season — every Sentinel-2 scene June–September,
   10 m, water where the blue–red NDWI exceeds 0.5 (Dunmire et al. 2021, from Miles et al. 2017), no scene-level cloud filter,
   a small closing, connected components ≥ 0.05 km², and a fill filter that drops slush and crevasse fields.
-- **Lake (site):** the union of the per-year outlines over a basis of seasons (v0.0: 2016–2025), closed with a ~150 m kernel.
-  The union is the lake's footprint polygon; the DEM is reported per lake as an attribute, never enforced.
+- **Lake (site):** the union of the per-year outlines over a basis of seasons (v0.0: 2016–2025), on the ice sheet
+  (BedMachine mask), with separate bodies of water joined by the *appendage rule*: two bodies are one lake if they are
+  within 50 m of each other (an ice lid splitting a lake), or within 250 m when the smaller is under one fifth of the
+  larger (a tail or pond hanging off a lake, which does not merit its own ID). Otherwise they are separate lakes. The
+  three numbers were set by a labelled test of 105 cases (`tests/closing_19_39/`). The union is the lake's water-seen
+  footprint polygon (it under-draws lakes under a persistent ice lid); the DEM is reported per lake as an attribute,
+  never enforced, along with review flags (`ice_marginal`, `thin`).
 - **Observation:** water inside the footprint per scene date, plus spill beyond it and a shared flag when one body spans two lakes.
 
 ## The ID
@@ -30,14 +35,19 @@ the append rule; lakes are never merged or renumbered by it — merges happen on
 - `docs/literature_lake_definition_and_identity.md` — how 30 papers define a lake and "the same lake" across years.
 - `pipeline/` — the scripts: `08a` submits an Earth Engine export of per-pixel water counts for one tile-season;
   `08b` downloads it; `08c` sweeps the outline knobs against Dunmire's outlines; `08d` tests multi-season sites;
-  `08e` builds sites, the registry, DEM attributes, the Dunmire crosswalk and figures; `08f` drives all ten seasons of one tile; `08g` cuts the ice-sheet domain mask from BedMachine v6. They currently expect the
+  `08e` builds sites (appendage rule), the registry, DEM attributes and review flags, the Dunmire crosswalk and figures; `08f` drives all ten seasons of one tile; `08g` cuts the ice-sheet domain mask from BedMachine v6; `11e` scores the appendage rule against the labels; `12a`/`12b` make the true-colour check figures. They currently expect the
   exploration workspace's layout (`out/`, `../labels/dunmire/`, a `.gee_project` file); a `data/` layout for this repo is the next step.
 - `registry/v0.0-test/tile_19_39/` — the first test registry (one 100 km ArcticDEM tile, central-west Greenland,
   ten seasons 2016–2025): `09_registry_19_39.csv` (one row per Lake ID: serial, centroid, area, seasons present,
   DEM attributes), `09_sites_19_39.geojson` (the site polygons), `09_site_years_19_39.csv` (per-season presence
   and area), `09_dunmire_crosswalk_19_39.csv` (which Dunmire 2018/2019 lakes each site holds), `09_sites_19_39.txt`
   (the summary). Test output, not a release: IDs here will be reissued when the Greenland-wide v0.0 registry is built.
-- `docs/figures/` — the tile-19_39 map, showcase (crescent, dumbbell, wide view) and statistics figures.
+- `registry/v0.0-test/tile_29_45/` — the second test tile (NE Greenland, 78–79° N), the independence check.
+- `tests/closing_19_39/` — the closing-accuracy test: 105 cases, both labellers' answers, the bridged-gap table, and
+  `11_rule_scores_19_39.txt`, the scoring that fixed the appendage rule (50 m always; 250 m if the smaller body is under
+  one fifth of the larger).
+- `docs/figures/` — per tile: map, showcase and statistics figures, and `truecolor/` — six 12 km windows per tile with
+  the site outlines and serials over Sentinel-2 true colour on two summers.
 - `env/gee.yml` — the conda env (earthengine-api, geopandas, rasterio).
 
 ## Precedents
