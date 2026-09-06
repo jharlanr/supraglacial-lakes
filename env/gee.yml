@@ -1,0 +1,9 @@
+name: gee
+channels:
+  - defaults
+dependencies:
+  - earthengine-api
+  - python=3.11
+  - geopandas
+  - rasterio
+prefix: /Users/jrines/anaconda3/envs/gee

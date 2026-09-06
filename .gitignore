@@ -1,0 +1,11 @@
+# data never goes in the repo: rasters, downloads, exports
+*.npy
+*.tif
+*.tar.gz
+*.gpkg
+*.parquet
+out/
+data/
+.gee_project
+__pycache__/
+.DS_Store
