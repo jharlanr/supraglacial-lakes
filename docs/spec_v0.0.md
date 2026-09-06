@@ -15,6 +15,11 @@ Dunmire 2021 (Josh, 2026-09-05): native 10 m, no scene-level cloud filter.
 - Grid 10 m, native. Landsat back-fill outlines are 30 m; membership by overlap does not care.
 - Water pixel: NDWI = (blue − red)/(blue + red) > 0.5 (Dunmire 2021, from Miles 2017). High on purpose:
   in a union, a false positive is permanent and a false negative is filled by another date.
+- Scene QA (added 2026-09-05 after one striped acquisition, 2024-08-31, put 89 km² of diagonal bands into a season):
+  per scene, the water area over the tile at 60 m; a scene above 3 × the median of the season's ten largest scene
+  water areas is dropped. Anchoring on the top of the distribution matters: a season's 95th percentile is near zero
+  in low-melt years and would reject the peak scenes (2018: peak 7 × p95; 2025: 11 ×). Over ten seasons of tile
+  19_39 the rule removes only the four granules of that one acquisition (`out/09_scene_qa_scan_19_39.json`).
 - Persistence: **k = 1** — a pixel is water for the year if it passes the threshold in any scene (Dunmire's own
   rule). Tested 2026-09-05 on tile 19_39, 2019 (`out/08_outline_knobs_19_39_2019.txt`): k = 2 loses 9 of 217
   Dunmire lakes, k = 3 loses 28, because a lake's outline is water in few scenes (median 11 detections in ~97
@@ -133,3 +138,21 @@ pairs of per-year outlines that the closing joins, and near neighbours it leaves
 3. One granule, one season (2019, CW) on GEE with the recipe above, at k = 1, 2, 3 and with/without the
    opening, compared against Dunmire's 2019 outlines as a sanity check (not a target): pins k, the closing
    and the opening before the ten-season run.
+
+## 6. Ten-season result on tile 19_39 (2026-09-05, `out/09_sites_19_39.*`)
+
+Recipe as in §1 with the scene QA (§1, scene area > 3 × median of the top-10 scene areas dropped; it removed
+the one striped 2024-08-31 acquisition that had painted 89 km² of diagonal bands into 2024 and nothing else).
+Per-season outlines 167–207 (67–109 km²; 2019 the big year at 108.6 km²). Union + 150 m closing → **297 sites,
+212 km²**. Versus Dunmire: 2018 139/139 touched, 138 covered ≥ 50 %; 2019 215/217 touched, 214 covered ≥ 50 %;
+no Dunmire lake spans two sites; 7 (2018) and 12 (2019) sites hold two Dunmire lakes of the same year (the
+crescent CW_0381 and dumbbell CW2018_1270 among them — one site each, from the union and closing alone).
+Persistence is bimodal: 71 sites held water in all ten seasons, 53 in only one; small sites are the one-offs
+(median 1 season below 0.1 km², 9–10 seasons above 0.5 km²). DEM correlation, reported not enforced: 66 % of
+centroids fall in a 32 m depression overall, 36 % below 0.1 km², 89 % at 0.5–1 km², 85 % above 1 km², 100 %
+above 5 km²; 24 % of sites lie entirely outside any depression. Registry IDs are serial north-to-south
+(`G00000_…` at the top of the tile); polygons in `09_sites_19_39.geojson`, per-year presence in
+`09_site_years_19_39.csv`, Dunmire crosswalk in `09_dunmire_crosswalk_19_39.csv`.
+Open before freezing: the closing-radius labelling test (§3), the extras (sites touching no Dunmire lake in
+2018/2019 — most are one-season small sites; some may be slush), and a second tile to check the recipe is not
+tuned to 19_39.

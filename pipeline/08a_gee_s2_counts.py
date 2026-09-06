@@ -30,10 +30,27 @@ def prep(img, scale=1e4):
     ndwi = b.normalizedDifference(["B2", "B4"])
     return ee.Image.cat(valid.rename("obs"), ndwi.gt(0.5).And(valid).rename("w50"), ndwi.gt(0.3).And(valid).rename("w30")).unmask(0)
 
-toa = ee.ImageCollection("COPERNICUS/S2_HARMONIZED").filterDate(T0, T1).filterBounds(region).map(prep)
-sr = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED").filterDate(T0, T1).filterBounds(region).map(prep)
+# Scene QA (added 2026-09-05 after the 2024-08-31 T22WEC striped scene put 89 km2 of diagonal bands into a season):
+# water area per scene over the tile at 60 m; scenes above QA_FACTOR x the season's 95th percentile are dropped.
+QA_FACTOR = float(os.environ.get("QA_FACTOR", "3"))
+def with_wpx(img):
+    b = img.select(["B2", "B4"]).divide(1e4); w = b.normalizedDifference(["B2", "B4"]).gt(0.5).rename("w")
+    return img.set("wpx", w.reduceRegion(ee.Reducer.sum(), region, scale=60, maxPixels=1e9).get("w"))
+def qa(col):
+    col = col.map(with_wpx); vals = col.aggregate_array("wpx")
+    # anchor on the top of the distribution: the median of the ten largest scene water areas. A season's 95th
+    # percentile is near zero in low-melt years (most scenes hold no water) and would reject the peak scenes.
+    top10 = vals.sort().reverse().slice(0, 10); anchor = ee.Number(top10.reduce(ee.Reducer.median()))
+    cut = anchor.multiply(QA_FACTOR).max(1)
+    kept = col.filter(ee.Filter.lte("wpx", cut)); dropped = col.filter(ee.Filter.gt("wpx", cut))
+    return kept, dropped, cut
+toa_all = ee.ImageCollection("COPERNICUS/S2_HARMONIZED").filterDate(T0, T1).filterBounds(region)
+sr_all = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED").filterDate(T0, T1).filterBounds(region)
+toa_k, toa_d, toa_cut = qa(toa_all); sr_k, sr_d, sr_cut = qa(sr_all)
+dropped_toa = toa_d.aggregate_array("system:index").getInfo(); dropped_sr = sr_d.aggregate_array("system:index").getInfo()
+toa = toa_k.map(prep); sr = sr_k.map(prep)
 n_toa, n_sr = toa.size().getInfo(), sr.size().getInfo()
-print(f"tile {TILE} {YEAR}: {n_toa} TOA scenes, {n_sr} SR scenes intersect the tile")
+print(f"tile {TILE} {YEAR}: {n_toa} TOA scenes kept, {len(dropped_toa)} dropped by QA (cut {toa_cut.getInfo():.0f} px at 60 m): {dropped_toa}; {n_sr} SR kept, {len(dropped_sr)} dropped")
 
 counts = ee.Image.cat(
     toa.select("obs").sum().rename("n_obs"),
@@ -41,14 +58,17 @@ counts = ee.Image.cat(
     toa.select("w30").sum().rename("n_w30_toa"),
     sr.select("w50").sum().rename("n_w50_sr"),
 ).toUint8().set({"tile": TILE, "year": YEAR, "t0": T0, "t1": T1, "n_toa_scenes": n_toa, "n_sr_scenes": n_sr,
-                 "recipe": "every scene; margin NDSI<0.85&B2<0.4; NDWI(B2,B4)>0.5|0.3; no cloud filter"})
+                 "recipe": "every scene passing scene-QA; margin NDSI<0.85&B2<0.4; NDWI(B2,B4)>0.5|0.3; no cloud filter", "qa_factor": QA_FACTOR, "dropped_toa": ",".join(dropped_toa), "dropped_sr": ",".join(dropped_sr)})
 
 asset = f"projects/{PROJECT}/assets/s2counts_{TILE}_{YEAR}"
+if os.environ.get("OVERWRITE") == "1":
+    try: ee.data.deleteAsset(asset); print("deleted existing asset")
+    except Exception as e: print("no existing asset to delete:", str(e)[:80])
 task = ee.batch.Export.image.toAsset(image=counts, description=f"s2counts_{TILE}_{YEAR}", assetId=asset,
                                      region=region, crs="EPSG:3413", crsTransform=[10, 0, x0, 0, -10, y1],
                                      maxPixels=2e9, pyramidingPolicy={".default": "sample"})
 task.start()
 info = {"task_id": task.id, "asset": asset, "tile": TILE, "year": YEAR, "x0": x0, "y0": y0, "x1": x1, "y1": y1,
-        "n_toa_scenes": n_toa, "n_sr_scenes": n_sr, "submitted": time.strftime("%Y-%m-%d %H:%M %Z")}
+        "n_toa_scenes": n_toa, "n_sr_scenes": n_sr, "dropped_toa": dropped_toa, "dropped_sr": dropped_sr, "submitted": time.strftime("%Y-%m-%d %H:%M %Z")}
 json.dump(info, open(os.path.join(ROOT, "out", f"08_gee_task_{TILE}_{YEAR}.json"), "w"), indent=1)
 print("submitted task", task.id, "->", asset)

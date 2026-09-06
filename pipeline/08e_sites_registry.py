@@ -60,7 +60,13 @@ first = [min((y for y in years if pres[y][i] > 0), default=-1) for i in ids]; la
 
 # 4. DEM attributes (32 m products from 04a/04b), sampled at 10 m by nearest
 dem_meta = json.load(open(os.path.join(OUT, f"{TILE}_dem_meta.json")))
-def up(a32):  # 32 m tile array -> 10 m grid of this tile (same origin; both cover the 100 km tile)
+def up(a32, smooth=False):  # 32 m tile array -> 10 m grid of this tile (same origin; both cover the 100 km tile)
+    if smooth:  # bilinear, for the hillshade only
+        z = ndi.zoom(np.nan_to_num(a32, nan=float(np.nanmin(a32))).astype("float32"), 3.2, order=1)
+        out = np.empty((N, N), "float32"); h, w = min(N, z.shape[0]), min(N, z.shape[1]); out[:h, :w] = z[:h, :w]
+        if h < N: out[h:, :] = out[h - 1:h, :]
+        if w < N: out[:, w:] = out[:, w - 1:w]
+        return out
     r = (np.arange(N) * 10 // 32).clip(0, a32.shape[0] - 1); c = (np.arange(N) * 10 // 32).clip(0, a32.shape[1] - 1)
     return a32[np.ix_(r, c)]
 depth = up(np.load(os.path.join(OUT, f"{TILE}_depth.npy"))); sinks = up(np.load(os.path.join(OUT, f"{TILE}_sinks.npy"))); subs = up(np.load(os.path.join(OUT, f"{TILE}_subbasins.npy")))
@@ -116,7 +122,7 @@ for lo, hi in ((0, 0.1), (0.1, 0.2), (0.2, 0.5), (0.5, 1), (1, 100)):
 open(os.path.join(OUT, f"09_sites_{TILE}.txt"), "w").write("\n".join(lines) + "\n")
 
 # 8. figures
-dem = up(np.load(os.path.join(OUT, f"{TILE}_dem.npy"))); ls = LightSource(315, 40)
+dem = up(np.load(os.path.join(OUT, f"{TILE}_dem.npy")), smooth=True); ls = LightSource(315, 40)
 fig, ax = plt.subplots(figsize=(13, 13)); hs = ls.hillshade(np.nan_to_num(dem, nan=np.nanmin(dem)), vert_exag=1, dx=10, dy=10)
 ax.imshow(hs[::4, ::4], cmap="gray", extent=(x0, x1, y0, y1)); ax.imshow(np.where(sinks[::4, ::4] > 0, 1, np.nan), cmap="Blues_r", alpha=0.25, extent=(x0, x1, y0, y1), vmin=0, vmax=2)
 gdf.plot(ax=ax, column="n_years", cmap="plasma", legend=True, legend_kwds={"label": "seasons with water", "shrink": 0.5}, edgecolor="k", linewidth=0.2)
@@ -130,9 +136,10 @@ for ax, (vn, (cx_, cy_, half)) in zip(axes, views.items()):
     sub = gdf[gdf.geometry.intersects(box(ext[0], ext[2], ext[1], ext[3]))]; sub.plot(ax=ax, facecolor="none", edgecolor="red", linewidth=1.6)
     for k, y in enumerate(years):
         yl = ylab[y][r0:r1, c0:c1]; ax.contour(np.flipud(yl > 0), levels=[0.5], colors=[cmap(k)], linewidths=0.8, extent=ext, origin="lower")
-    for _, r in sub.iterrows(): ax.annotate(r.site_id, (r.geometry.centroid.x, r.geometry.centroid.y), fontsize=6, ha="center", color="red")
-    ax.set_xlim(ext[0], ext[1]); ax.set_ylim(ext[2], ext[3]); ax.set_xticks([]); ax.set_yticks([]); ax.set_title(f"{vn}: red = site, colours = per-year outlines {years[0]}–{years[-1]}", fontsize=9)
-sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(years[0] - 0.5, years[-1] + 0.5)); fig.colorbar(sm, ax=axes, shrink=0.6, label="season")
+    for _, r in sub.iterrows(): ax.annotate(r.site_id if half < 5000 else r.site_id.split("_")[0], (r.geometry.centroid.x, r.geometry.centroid.y), fontsize=6 if half < 5000 else 5, ha="center", va="bottom", color="red", xytext=(0, 3), textcoords="offset points")
+    ax.set_xlim(ext[0], ext[1]); ax.set_ylim(ext[2], ext[3]); ax.set_xticks([]); ax.set_yticks([]); ax.set_title(vn, fontsize=10)
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(years[0] - 0.5, years[-1] + 0.5)); fig.colorbar(sm, ax=axes, shrink=0.6, label="season of the per-year outline")
+fig.suptitle(f"Tile {TILE}: red = v0.0 site polygon (union of {years[0]}–{years[-1]} outlines + 150 m closing); coloured lines = per-year outlines; labels = Lake IDs (serial only in the wide view)", fontsize=10)
 fig.savefig(os.path.join(OUT, f"09_sites_{TILE}_showcase.png"), dpi=100); plt.close(fig)
 fig, axes = plt.subplots(1, 3, figsize=(16, 4.6))
 axes[0].hist(nyears, bins=np.arange(0.5, len(years) + 1.5), color="tab:blue"); axes[0].set_xlabel("seasons in which the site held water"); axes[0].set_ylabel("sites")

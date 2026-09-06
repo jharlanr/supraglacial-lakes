@@ -32,6 +32,12 @@ the append rule; lakes are never merged or renumbered by it — merges happen on
   `08b` downloads it; `08c` sweeps the outline knobs against Dunmire's outlines; `08d` tests multi-season sites;
   `08e` builds sites, the registry, DEM attributes, the Dunmire crosswalk and figures. They currently expect the
   exploration workspace's layout (`out/`, `../labels/dunmire/`, a `.gee_project` file); a `data/` layout for this repo is the next step.
+- `registry/v0.0-test/tile_19_39/` — the first test registry (one 100 km ArcticDEM tile, central-west Greenland,
+  ten seasons 2016–2025): `09_registry_19_39.csv` (one row per Lake ID: serial, centroid, area, seasons present,
+  DEM attributes), `09_sites_19_39.geojson` (the site polygons), `09_site_years_19_39.csv` (per-season presence
+  and area), `09_dunmire_crosswalk_19_39.csv` (which Dunmire 2018/2019 lakes each site holds), `09_sites_19_39.txt`
+  (the summary). Test output, not a release: IDs here will be reissued when the Greenland-wide v0.0 registry is built.
+- `docs/figures/` — the tile-19_39 map, showcase (crescent, dumbbell, wide view) and statistics figures.
 - `env/gee.yml` — the conda env (earthengine-api, geopandas, rasterio).
 
 ## Precedents
