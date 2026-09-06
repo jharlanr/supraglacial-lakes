@@ -272,3 +272,19 @@ segments), which are part of the lake object. What Josh wants is "drop an outlin
 whole anything that has a wide body" — and that is the existing 50 m core rule (§1b): a component survives, complete,
 if any part of it is ≥ 50 m wide, so a lone channel goes and a channel attached to a lake stays with the lake. `MINW_PX`
 now defaults to 0 (knob kept); the core rule is the width rule. Pond chains with wide ponds remain one object.
+
+## 12. Compute route for Greenland-wide (decided 2026-09-06 evening, Josh): Level-1C from Copernicus Data Space, on Sherlock
+
+Earth Engine's noncommercial tier (150 EECU-hours/month; two tiles × ten seasons spent it) cannot carry the ~67 lake-zone
+tiles. Decision: the counts (08a's reduction) run on Sherlock as one array task per tile-season, reading Sentinel-2
+**Level-1C** (Dunmire's product, and the one our Earth Engine exports use) from the Copernicus Data Space `eodata` S3
+store (free account; JPEG2000 in SAFE, so whole-band reads). Level-2A was rejected for the counts: (i) atmospheric
+correction changes the blue band most, so the 0.5 NDWI threshold tuned on top-of-atmosphere does not carry over;
+(ii) it is incomplete before 2019 (July over CW: Planetary Computer 13/24/25 scenes in 2016/17/18, AWS 0/20/34, against
+651/572/627 Level-1C scenes per whole season on the tile), and the basis needs every season. Level-2A stays fine for
+2019+ products (observation layer, chips). Planetary Computer serves Level-2A only; AWS Level-1C is requester-pays.
+Test plan before scaling (none started; needs Josh's Copernicus account keys on Sherlock, never in the repo):
+1. one scene on one node (auth, decode, throughput); 2. tile 19_39, season 2019, one node, output in 08b's format,
+site builder unchanged, compare outlines and Dunmire recall with the Earth Engine result, record wall-clock and
+bytes; 3. ten tile-seasons as a ten-node array job (throttling, Greenland-scale estimate). No 20 m or per-day cuts:
+parallelism covers the volume.
