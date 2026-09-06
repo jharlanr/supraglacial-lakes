@@ -1,21 +1,22 @@
-Sites v0.0, tile 19_39, seasons [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], site closing 15 px — 2026-09-05 20:14 PDT
-  2016: 651 scenes, 207 outlines, 83.9 km2
-  2017: 572 scenes, 167 outlines, 70.3 km2
-  2018: 627 scenes, 173 outlines, 67.7 km2
-  2019: 637 scenes, 202 outlines, 108.6 km2
-  2020: 637 scenes, 181 outlines, 78.3 km2
-  2021: 639 scenes, 200 outlines, 83.7 km2
-  2022: 644 scenes, 196 outlines, 67.7 km2
-  2023: 615 scenes, 169 outlines, 77.3 km2
-  2024: 641 scenes, 187 outlines, 67.2 km2
+Sites v0.0, tile 19_39, seasons [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], site closing 15 px — 2026-09-05 20:33 PDT
+domain: BedMachine v6 ice mask, 98.8 % of the tile is ice
+  2016: 651 scenes, 206 outlines, 81.7 km2
+  2017: 572 scenes, 166 outlines, 69.3 km2
+  2018: 627 scenes, 171 outlines, 65.6 km2
+  2019: 637 scenes, 200 outlines, 107.7 km2
+  2020: 637 scenes, 180 outlines, 75.4 km2
+  2021: 639 scenes, 199 outlines, 83.6 km2
+  2022: 644 scenes, 194 outlines, 66.7 km2
+  2023: 615 scenes, 170 outlines, 77.3 km2
+  2024: 641 scenes, 184 outlines, 63.9 km2
   2025: 946 scenes, 185 outlines, 67.4 km2
-sites: 297, total 212.2 km2 (union before closing 201.3 km2)
+sites: 297, total 207.8 km2 (union before closing 196.3 km2)
 Dunmire 2018: 139 lakes in tile; 139 touch a site, 138 covered >=50 %, 0 span >=2 sites; sites holding >=2 2018 lakes: 7
 Dunmire 2019: 217 lakes in tile; 215 touch a site, 214 covered >=50 %, 0 span >=2 sites; sites holding >=2 2019 lakes: 12
-sites by years present (of 10): 1:53, 2:35, 3:17, 4:24, 5:13, 6:15, 7:14, 8:19, 9:36, 10:71
+sites by years present (of 10): 1:54, 2:34, 3:18, 4:24, 5:13, 6:15, 7:14, 8:18, 9:36, 10:71
 sites with centroid in a 32 m depression: 66 %; with >=50 % of area in one: 60 %; entirely outside: 24 %
-  sites 0-0.1 km2: n=42, centroid in depression 36 %, median years present 1
-  sites 0.1-0.2 km2: n=62, centroid in depression 45 %, median years present 2
+  sites 0-0.1 km2: n=42, centroid in depression 33 %, median years present 1
+  sites 0.1-0.2 km2: n=63, centroid in depression 44 %, median years present 2
   sites 0.2-0.5 km2: n=69, centroid in depression 67 %, median years present 7
   sites 0.5-1 km2: n=70, centroid in depression 89 %, median years present 9
-  sites 1-100 km2: n=54, centroid in depression 85 %, median years present 10
+  sites 1-100 km2: n=53, centroid in depression 87 %, median years present 10

@@ -28,10 +28,20 @@ def disk(r):
 lines = [f"Sites v0.0, tile {TILE}, seasons {years}, site closing {SITE_CLOSE} px — {time.strftime('%Y-%m-%d %H:%M %Z')}"]
 def say(s): print(s); lines.append(s)
 
+# 0. domain: the ice sheet (BedMachine v6 mask, grounded + floating ice, from 08g), nearest-upsampled to the 10 m grid
+imf = os.path.join(OUT, f"{TILE}_icemask_150m.npy")
+if os.path.exists(imf):
+    im = np.load(imf); imm = json.load(open(os.path.join(OUT, f"{TILE}_icemask_150m_meta.json")))
+    xc = x0 + 10 * (np.arange(N) + 0.5); yc = y1 - 10 * (np.arange(N) + 0.5)
+    cols = np.clip(np.rint((xc - imm["x_col0"]) / 150).astype(int), 0, im.shape[1] - 1); rows = np.clip(np.rint((imm["y_row0"] - yc) / 150).astype(int), 0, im.shape[0] - 1)
+    ice = im[rows[:, None], cols[None, :]]; say(f"domain: BedMachine v6 ice mask, {ice.mean()*100:.1f} % of the tile is ice")
+else:
+    ice = np.ones((N, N), bool); say("domain: no ice mask file (08g) — whole tile treated as ice")
+
 # 1. per-year outlines
 ylab = {}; yrows = []
 for y in years:
-    arr = np.load(os.path.join(OUT, f"{pref}{y}_n_w50_toa.npy"))
+    arr = np.load(os.path.join(OUT, f"{pref}{y}_n_w50_toa.npy")); arr = np.where(ice, arr, 0)
     w = ndi.binary_closing(arr >= 1, structure=disk(5)); lab, _ = ndi.label(w, structure=S8)
     cnt = np.bincount(lab.ravel()); ids = np.flatnonzero(cnt >= MIN_PX); ids = ids[ids > 0]
     fill = ndi.mean((arr >= 1).astype(float), lab, ids); keep = ids[fill >= FILL]
@@ -128,7 +138,14 @@ ax.imshow(hs[::4, ::4], cmap="gray", extent=(x0, x1, y0, y1)); ax.imshow(np.wher
 gdf.plot(ax=ax, column="n_years", cmap="plasma", legend=True, legend_kwds={"label": "seasons with water", "shrink": 0.5}, edgecolor="k", linewidth=0.2)
 ax.set_title(f"Tile {TILE}: {len(ids)} lake sites from the {years[0]}–{years[-1]} Sentinel-2 union; light blue = 32 m ArcticDEM depressions (attribute only)"); ax.set_xticks([]); ax.set_yticks([])
 fig.tight_layout(); fig.savefig(os.path.join(OUT, f"09_sites_{TILE}_map.png"), dpi=110); plt.close(fig)
-views = {"crescent CW_0381": (-172_900, -2_144_700, 1_500), "dumbbell CW2018_1270": (-185_200, -2_109_500, 2_200), "wide view": (x0 + 50_000, y0 + 50_000, 12_000)}
+views = {"crescent CW_0381": (-172_900, -2_144_700, 1_500), "dumbbell CW2018_1270": (-185_200, -2_109_500, 2_200)}
+views = {k: v for k, v in views.items() if x0 <= v[0] <= x1 and y0 <= v[1] <= y1}
+if len(views) < 2:  # other tiles: the two sites holding the most Dunmire lakes (ties by area), each framed to its own extent
+    multi = xw[xw.site_id != ""].groupby("site_id").dunmire_id.nunique().sort_values(ascending=False)
+    for sid in list(multi.index[:2]) + list(gdf.sort_values("area_km2", ascending=False).site_id):
+        if len(views) >= 2: break
+        g = gdf[gdf.site_id == sid].geometry.iloc[0]; b = g.bounds; views[f"{sid} ({multi.get(sid, 0)} Dunmire lakes)"] = ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, max(b[2] - b[0], b[3] - b[1]) * 0.8 + 400)
+views["wide view"] = (x0 + 50_000, y0 + 50_000, 12_000)
 cmap = plt.get_cmap("viridis", len(years)); fig, axes = plt.subplots(1, 3, figsize=(19, 6.5))
 for ax, (vn, (cx_, cy_, half)) in zip(axes, views.items()):
     ext = (cx_ - half, cx_ + half, cy_ - half, cy_ + half); c0, r0 = ~tr * (ext[0], ext[3]); c1, r1 = ~tr * (ext[1], ext[2]); r0, r1, c0, c1 = int(max(r0, 0)), int(min(r1, N)), int(max(c0, 0)), int(min(c1, N))

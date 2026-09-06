@@ -30,7 +30,7 @@ the append rule; lakes are never merged or renumbered by it — merges happen on
 - `docs/literature_lake_definition_and_identity.md` — how 30 papers define a lake and "the same lake" across years.
 - `pipeline/` — the scripts: `08a` submits an Earth Engine export of per-pixel water counts for one tile-season;
   `08b` downloads it; `08c` sweeps the outline knobs against Dunmire's outlines; `08d` tests multi-season sites;
-  `08e` builds sites, the registry, DEM attributes, the Dunmire crosswalk and figures. They currently expect the
+  `08e` builds sites, the registry, DEM attributes, the Dunmire crosswalk and figures; `08f` drives all ten seasons of one tile; `08g` cuts the ice-sheet domain mask from BedMachine v6. They currently expect the
   exploration workspace's layout (`out/`, `../labels/dunmire/`, a `.gee_project` file); a `data/` layout for this repo is the next step.
 - `registry/v0.0-test/tile_19_39/` — the first test registry (one 100 km ArcticDEM tile, central-west Greenland,
   ten seasons 2016–2025): `09_registry_19_39.csv` (one row per Lake ID: serial, centroid, area, seasons present,

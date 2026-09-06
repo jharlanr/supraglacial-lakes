@@ -44,7 +44,7 @@ Dunmire 2021 (Josh, 2026-09-05): native 10 m, no scene-level cloud filter.
   a 0.4 band, and site-level persistence across years (a small lake accumulates over ten seasons, a crevasse field
   moves).
 - One polygon per component per year. Attributes: year, area, n_scenes_water, first/last water date.
-- Domain: the whole GIMP ice mask, no elevation cap (lakes advance inland ~10 m a⁻¹, Fan 2025; the
+- Domain: the whole ice sheet, implemented as the BedMachine Greenland v6 150 m mask (grounded + floating ice; Morlighem et al. 2017, derived from the GIMP ice mask), nearest-upsampled to 10 m and applied to the water pixels before component labelling (`scripts/08g_ice_mask.py`, 2026-09-05; tile 19_39 is 98.8 % ice and the mask changes nothing there but one ice-marginal site's off-ice lobe); no elevation cap (lakes advance inland ~10 m a⁻¹, Fan 2025; the
   < 2000 m zone was only used to size the job). Minimum size is a definition of *lake*, not of water
   (Ryan 2026: features < 0.015 km² hold 38–67 % of surface water); lowering it later adds sites via the
   append rule without renumbering.
@@ -144,7 +144,7 @@ pairs of per-year outlines that the closing joins, and near neighbours it leaves
 Recipe as in §1 with the scene QA (§1, scene area > 3 × median of the top-10 scene areas dropped; it removed
 the one striped 2024-08-31 acquisition that had painted 89 km² of diagonal bands into 2024 and nothing else).
 Per-season outlines 167–207 (67–109 km²; 2019 the big year at 108.6 km²). Union + 150 m closing → **297 sites,
-212 km²**. Versus Dunmire: 2018 139/139 touched, 138 covered ≥ 50 %; 2019 215/217 touched, 214 covered ≥ 50 %;
+208 km²** (with the ice-sheet domain mask). Versus Dunmire: 2018 139/139 touched, 138 covered ≥ 50 %; 2019 215/217 touched, 214 covered ≥ 50 %;
 no Dunmire lake spans two sites; 7 (2018) and 12 (2019) sites hold two Dunmire lakes of the same year (the
 crescent CW_0381 and dumbbell CW2018_1270 among them — one site each, from the union and closing alone).
 Persistence is bimodal: 71 sites held water in all ten seasons, 53 in only one; small sites are the one-offs
@@ -156,3 +156,14 @@ above 5 km²; 24 % of sites lie entirely outside any depression. Registry IDs ar
 Open before freezing: the closing-radius labelling test (§3), the extras (sites touching no Dunmire lake in
 2018/2019 — most are one-season small sites; some may be slush), and a second tile to check the recipe is not
 tuned to 19_39.
+
+## 7. Second tile: 29_45 (NE Greenland, submitted 2026-09-05 20:30 PDT)
+
+To check the recipe is not tuned to 19_39, the same ten seasons are being exported for tile 29_45 (78.0–79.2° N,
+20.5–26.6° W: the NEGIS / Storstrømmen area, the ground of Hochreuther 2021, Lutz 2025 and Fan 2025, with a nunatak
+zone and an ice-free coastal strip — 92.9 % ice by BedMachine, so the first tile where the domain mask matters).
+Dunmire has 217 lakes there in 2019 (176 km²). Sentinel-2 orbit overlap at 79° N gives ~1 700–1 900 scenes per
+season against ~640 at 70° N, so each export takes roughly three times longer. Driver: `scripts/08f_batch_tile.py`
+(submits 08a for each season, polls, downloads with 08b); `scripts/chain_29_45.sh` runs 08e when the batch finishes;
+log `out/08_batch_29_45.log`. Size threshold stays 0.05 km² (Dunmire 2021/2025, How 2025, Miles 2017's 0.0495 km²);
+the NEGIS papers used 0.015 km², so a recall gap against them is expected and is a threshold choice, not a recipe fault.
