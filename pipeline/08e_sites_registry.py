@@ -5,7 +5,7 @@ registry (ID = centroid lat/lon at registration), per-year presence and area, DE
 sub-basins / depth from 04b, reported not enforced), crosswalk to Dunmire 2018/2019, figures.
 Outputs: out/09_sites_{TILE}.geojson, out/09_registry_{TILE}.csv, out/09_site_years_{TILE}.csv,
          out/09_dunmire_crosswalk_{TILE}.csv, out/09_sites_{TILE}.txt, out/09_sites_{TILE}_{map,showcase,stats}.png
-Run:  nice -n 15 $(cat .python_env) scripts/08e_sites_registry.py        (TILE=19_39; JOIN_ALL_M=50 JOIN_APP_M=250 APP_RATIO=0.2 MINW_PX=2 EXCLUDE_TOUCHING=1)
+Run:  nice -n 15 $(cat .python_env) scripts/08e_sites_registry.py        (TILE=19_39; JOIN_ALL_M=50 JOIN_APP_M=250 APP_RATIO=0.2 MINW_PX=0 EXCLUDE_TOUCHING=1)
 """
 import os, json, glob, time
 import numpy as np, pandas as pd, geopandas as gpd
@@ -17,7 +17,7 @@ from shapely.ops import unary_union
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.colors import LightSource
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "out")
-TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); MIN_PX = 500; FILL = 0.5; MINW_PX = int(os.environ.get("MINW_PX", "2")); EXCLUDE_TOUCHING = os.environ.get("EXCLUDE_TOUCHING", "1") == "1"
+TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); MIN_PX = 500; FILL = 0.5; MINW_PX = int(os.environ.get("MINW_PX", "0")); EXCLUDE_TOUCHING = os.environ.get("EXCLUDE_TOUCHING", "1") == "1"
 pref = f"08_s2counts_{TILE}_"
 years = sorted(int(os.path.basename(f)[len(pref):].split("_")[0]) for f in glob.glob(os.path.join(OUT, pref + "*_meta.json")))
 meta = json.load(open(os.path.join(OUT, f"{pref}{years[0]}_meta.json"))); tr = Affine(*meta["transform"]); N = meta["shape"][0]

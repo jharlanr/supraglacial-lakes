@@ -9,8 +9,9 @@ for two seasons; the ten-season build of that tile is in progress. Private until
 
 - **Outline (per year):** the seasonal maximum extent of water in one melt season — every Sentinel-2 scene June–September,
   10 m, water where the blue–red NDWI exceeds 0.5 (Dunmire et al. 2021, from Miles et al. 2017), no scene-level cloud filter,
-  a small closing, connected components ≥ 0.05 km², a fill filter that drops slush and crevasse fields, a 50 m core
-  (drops swath-edge lines), and a minimum width of 40 m (channels and pond-chain necks are cut, lake shapes untouched).
+  a small closing, connected components ≥ 0.05 km², a fill filter that drops slush and crevasse fields, and a 50 m core: an
+  outline that is thin everywhere (a channel, a swath-edge line) is not a lake, while an outline with a wide body anywhere
+  is kept whole, tails and channels included.
 - **Lake (site):** the union of the per-year outlines over a basis of seasons (v0.0: 2016–2025), on the ice sheet
   (BedMachine mask; water that touches rock or ocean is an ice-marginal lake and is excluded), with separate bodies of water joined by the *appendage rule*: two bodies are one lake if they are
   within 50 m of each other (an ice lid splitting a lake), or within 250 m when the smaller is under one fifth of the

@@ -267,3 +267,8 @@ jaggedness, not linearity.
   19_39, 11 on 29_45 (20.5 km², the 9.7 km² fjord body among them).
 Result on 19_39 with both rules: 301 sites (5 lid + 3 appendage joins), 194 km²; Dunmire 139/139 and 215/217 unchanged;
 the 100 m × 1.5 km strip (old serial 214) is gone and no site is flagged thin; the one touching site (0.1 km²) excluded.
+**Reversed the same evening (Josh):** the 40 m rule trims thin parts *attached* to lakes (outflow tails, narrow moat
+segments), which are part of the lake object. What Josh wants is "drop an outline only if it is thin everywhere; keep
+whole anything that has a wide body" — and that is the existing 50 m core rule (§1b): a component survives, complete,
+if any part of it is ≥ 50 m wide, so a lone channel goes and a channel attached to a lake stays with the lake. `MINW_PX`
+now defaults to 0 (knob kept); the core rule is the width rule. Pond chains with wide ponds remain one object.
