@@ -45,6 +45,7 @@ for y in years:
     w = ndi.binary_closing(arr >= 1, structure=disk(5)); lab, _ = ndi.label(w, structure=S8)
     cnt = np.bincount(lab.ravel()); ids = np.flatnonzero(cnt >= MIN_PX); ids = ids[ids > 0]
     fill = ndi.mean((arr >= 1).astype(float), lab, ids); keep = ids[fill >= FILL]
+    core = ndi.maximum(ndi.binary_erosion(np.isin(lab, keep), structure=disk(2)).astype(np.uint8), lab, keep).astype(bool); keep = keep[core]  # must contain a 50 m wide core (drops swath-edge lines)
     ylab[y] = np.where(np.isin(lab, keep), lab, 0)
     m = json.load(open(os.path.join(OUT, f"{pref}{y}_meta.json")))
     yrows.append(dict(year=y, scenes=m["n_toa_scenes"], outlines=len(keep), area_km2=round(cnt[keep].sum() * 1e-4, 1)))

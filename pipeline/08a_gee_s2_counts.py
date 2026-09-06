@@ -26,13 +26,13 @@ def prep(img, scale=1e4):
     b = img.select(["B2", "B3", "B4", "B11"]).divide(scale)
     ndsi = b.normalizedDifference(["B3", "B11"])
     margin = ndsi.lt(0.85).And(b.select("B2").lt(0.4))          # rock / seawater -> excluded
-    valid = b.select("B2").mask().And(b.select("B4").mask()).And(margin.Not())
+    valid = b.select("B2").mask().And(b.select("B4").mask()).focalMin(EDGE_PX, "square", "pixels").And(margin.Not())  # drop EDGE_PX swath-edge pixels (line artefacts)
     ndwi = b.normalizedDifference(["B2", "B4"])
     return ee.Image.cat(valid.rename("obs"), ndwi.gt(0.5).And(valid).rename("w50"), ndwi.gt(0.3).And(valid).rename("w30")).unmask(0)
 
 # Scene QA (added 2026-09-05 after the 2024-08-31 T22WEC striped scene put 89 km2 of diagonal bands into a season):
 # water area per scene over the tile at 60 m; scenes above QA_FACTOR x the season's 95th percentile are dropped.
-QA_FACTOR = float(os.environ.get("QA_FACTOR", "3"))
+QA_FACTOR = float(os.environ.get("QA_FACTOR", "3")); EDGE_PX = int(os.environ.get("EDGE_PX", "3"))
 def with_wpx(img):
     b = img.select(["B2", "B4"]).divide(1e4); w = b.normalizedDifference(["B2", "B4"]).gt(0.5).rename("w")
     return img.set("wpx", w.reduceRegion(ee.Reducer.sum(), region, scale=60, maxPixels=1e9).get("w"))

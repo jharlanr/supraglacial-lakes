@@ -167,3 +167,35 @@ season against ~640 at 70° N, so each export takes roughly three times longer. 
 (submits 08a for each season, polls, downloads with 08b); `scripts/chain_29_45.sh` runs 08e when the batch finishes;
 log `out/08_batch_29_45.log`. Size threshold stays 0.05 km² (Dunmire 2021/2025, How 2025, Miles 2017's 0.0495 km²);
 the NEGIS papers used 0.015 km², so a recall gap against them is expected and is a threshold choice, not a recipe fault.
+
+### 1b. Two artefact rules added 2026-09-05 late (found by the closing test chips)
+
+- **Swath-edge lines.** Three one-season "outlines" on tile 19_39 (2020 ×2, 2023 ×1, each ≤ 0.1 km²) were perfectly
+  straight 1–2 px diagonal lines along Sentinel-2 swath edges (band misregistration at the footprint edge makes NDWI
+  spike); a fourth was glued onto a real lake (G00277). Two rules: (i) at the source, 08a drops `EDGE_PX` = 3 pixels
+  inside every scene's valid footprint (`focalMin`), for all future exports; (ii) in 08e/11a, a per-season outline must
+  contain a 50 m wide core (survive erosion by a 2 px disk). On 19_39 the core rule removes exactly the three lines and
+  touches no Dunmire lake; the attached line on G00277 needs the source rule (re-export pending).
+- **Chip fetch honours scene QA.** 11b now excludes the scenes the tile's task JSONs dropped (the striped 2024-08-31
+  scene had been picked as "wettest" for one chip).
+
+## 8. Closing-accuracy test, tile 19_39 (2026-09-05 late; Josh and Claude labelled all 105 cases independently)
+
+Cases (`out/11_cases_19_39.csv`; chips `out/11_chips/`; labels `out/11_labels_both_19_39.csv`; label page
+https://claude.ai/code/artifact/b4b6d918-2fe0-4e47-a742-f5b1ad339d4c): 16 sites the 150 m closing glued from separate
+union pieces ("joined"), 35 sites that held ≥ 2 outlines in one season ("lid", joined by the union, not the closing),
+54 pairs of sites within 1 km left apart ("apart"). Answers 1 = one lake basin, 2 = two or more, 3 = can't tell.
+Agreement 84/105 (80 %); disagreements are channel-linked ponds, slush fields, and the line artefacts (§1b).
+
+| pool | n | Josh: wrong | Claude: wrong | reading |
+|---|---|---|---|---|
+| joined (closing acted) | 16 | 6 two-or-more | 10 two-or-more | the closing is wrong about half the time it acts |
+| lid (union joined) | 35 | 4 | 3 | the union rule is right ~90 % |
+| apart (left separate) | 54 | 6 "one lake" | 1 "one lake" | few false splits; Josh's six are at 155–951 m, no radius fixes them |
+
+The bridged gap decides it (`out/11_joined_gaps_19_39.csv`): the five glued sites with gaps ≤ 80 m are lid remnants
+and both labellers call them one lake (Josh 4/5, Claude 3/5 with one slush "can't tell"); of the eleven with gaps
+114–201 m, Josh calls 6 and Claude 9 separate lakes. **Recommendation: site closing 50 m (5 px, the same radius as the
+per-scene closing) instead of 150 m.** It keeps every lid join both labellers endorse, drops most of the wrong ones,
+and creates no new false split at the gaps where the labellers disagree. Not applied yet (Josh's call; one 08e rerun
+with `SITE_CLOSE_PX=5`). Registry after the core rule (§1b): 294 sites, Dunmire recall unchanged (139/139, 215/217).
