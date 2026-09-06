@@ -5,7 +5,7 @@ registry (ID = centroid lat/lon at registration), per-year presence and area, DE
 sub-basins / depth from 04b, reported not enforced), crosswalk to Dunmire 2018/2019, figures.
 Outputs: out/09_sites_{TILE}.geojson, out/09_registry_{TILE}.csv, out/09_site_years_{TILE}.csv,
          out/09_dunmire_crosswalk_{TILE}.csv, out/09_sites_{TILE}.txt, out/09_sites_{TILE}_{map,showcase,stats}.png
-Run:  nice -n 15 $(cat .python_env) scripts/08e_sites_registry.py        (TILE=19_39; JOIN_ALL_M=50 JOIN_APP_M=250 APP_RATIO=0.2)
+Run:  nice -n 15 $(cat .python_env) scripts/08e_sites_registry.py        (TILE=19_39; JOIN_ALL_M=50 JOIN_APP_M=250 APP_RATIO=0.2 MINW_PX=2 EXCLUDE_TOUCHING=1)
 """
 import os, json, glob, time
 import numpy as np, pandas as pd, geopandas as gpd
@@ -17,7 +17,7 @@ from shapely.ops import unary_union
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.colors import LightSource
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "out")
-TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); MIN_PX = 500; FILL = 0.5
+TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); MIN_PX = 500; FILL = 0.5; MINW_PX = int(os.environ.get("MINW_PX", "2")); EXCLUDE_TOUCHING = os.environ.get("EXCLUDE_TOUCHING", "1") == "1"
 pref = f"08_s2counts_{TILE}_"
 years = sorted(int(os.path.basename(f)[len(pref):].split("_")[0]) for f in glob.glob(os.path.join(OUT, pref + "*_meta.json")))
 meta = json.load(open(os.path.join(OUT, f"{pref}{years[0]}_meta.json"))); tr = Affine(*meta["transform"]); N = meta["shape"][0]
@@ -46,6 +46,10 @@ for y in years:
     cnt = np.bincount(lab.ravel()); ids = np.flatnonzero(cnt >= MIN_PX); ids = ids[ids > 0]
     fill = ndi.mean((arr >= 1).astype(float), lab, ids); keep = ids[fill >= FILL]
     core = ndi.maximum(ndi.binary_erosion(np.isin(lab, keep), structure=disk(2)).astype(np.uint8), lab, keep).astype(bool); keep = keep[core]  # must contain a 50 m wide core (drops swath-edge lines)
+    M = np.isin(lab, keep)
+    if MINW_PX:  # minimum width 2*MINW_PX*10 m (Josh 2026-09-06: 40 m): open, then grow back inside the outline so shapes keep, channels and necks go
+        M = ndi.binary_dilation(ndi.binary_opening(M, structure=disk(MINW_PX)), structure=disk(MINW_PX)) & M
+        lab, _ = ndi.label(M, structure=S8); cnt = np.bincount(lab.ravel()); keep = np.flatnonzero(cnt >= MIN_PX); keep = keep[keep > 0]
     ylab[y] = np.where(np.isin(lab, keep), lab, 0)
     m = json.load(open(os.path.join(OUT, f"{pref}{y}_meta.json")))
     yrows.append(dict(year=y, scenes=m["n_toa_scenes"], outlines=len(keep), area_km2=round(cnt[keep].sum() * 1e-4, 1)))
@@ -82,6 +86,10 @@ lut = np.zeros(npieces + 1, np.int32)
 for p, rt in root.items(): lut[p] = site_of_root[rt]
 slab = lut[plab]; spx = np.bincount(slab.ravel()); ids = np.flatnonzero(spx >= MIN_PX); ids = ids[ids > 0]
 slab = np.where(np.isin(slab, ids), slab, 0)
+edge = ndi.distance_transform_edt(ice) * 10.0  # distance to non-ice (rock, ocean) on the BedMachine mask, m
+if EXCLUDE_TOUCHING:  # Josh 2026-09-06: water that touches rock or ocean is an ice-marginal lake, not a supraglacial one
+    e0 = ndi.minimum(edge, slab, ids); touching = ids[e0 == 0]; ids = ids[e0 > 0]; slab = np.where(np.isin(slab, ids), slab, 0)
+    say(f"excluded {len(touching)} sites touching non-ice ({spx[touching].sum()*1e-4:.1f} km2); {len(ids)} sites remain")
 pd.DataFrame(joins).to_csv(os.path.join(OUT, f"09_joins_{TILE}.csv"), index=False)
 say(f"sites: {len(ids)} from {npieces} union pieces; {n_all} lid joins (gap <= {JOIN_ALL_M} m), {n_app} appendage joins (gap <= {JOIN_APP_M} m, ratio < {APP_RATIO}); total {spx[ids].sum()*1e-4:.1f} km2")
 
@@ -110,7 +118,7 @@ frac_sink = ndi.mean((sinks > 0).astype(float), slab, ids); maxdepth = ndi.maxim
 main_sub = []
 for i in ids:
     s = subs[slab == i]; s = s[s > 0]; main_sub.append(int(np.bincount(s).argmax()) if s.size else 0)
-edge = ndi.distance_transform_edt(ice) * 10.0; ice_edge_m = ndi.minimum(edge, slab, ids)
+ice_edge_m = ndi.minimum(edge, slab, ids)
 halfw = ndi.maximum(ndi.distance_transform_edt(slab > 0) * 10.0, slab, ids)  # widest point of the site (m); <= 60 m flags line-like sites for review  # distance from the site's nearest pixel to non-ice (BedMachine mask)
 cy, cx = zip(*ndi.center_of_mass(slab > 0, slab, ids)); cxg = np.array([tr * (c, r) for r, c in zip(cy, cx)])
 cent_in_sink = sinks[np.clip(np.array(cy).astype(int), 0, N - 1), np.clip(np.array(cx).astype(int), 0, N - 1)] > 0

@@ -252,3 +252,18 @@ Two per-site review flags, attributes not rules: `ice_marginal` (site within 300
 registry is a scope call), and `thin` (widest point ≤ 60 m; catches line-like sites such as 19_39 serial 214, a
 100 m wide, 1.5 km straight strip that passed the 50 m core rule). `elongation` (P²/4πA) is reported too but measures
 jaggedness, not linearity.
+
+## 11. Two more rules decided 2026-09-06 (Josh): minimum width 40 m; sites touching rock or ocean are out
+
+- **Minimum width, per-season outline** (`MINW_PX` = 2 → 40 m in 08e): open the outline with a 2 px disk, then grow the
+  survivors back by 2 px inside the original outline. Lake shapes are unchanged; channels narrower than 40 m and pond
+  chains necked below 40 m are cut; pieces under 0.05 km² drop. Tested (`scripts/13_min_width_test.py`,
+  `out/13_min_width_*`): at 40 m no Dunmire lake is lost on either tile and ~0.5 % of water goes; at 60 m the NE tile
+  loses four Dunmire lakes that are 50–60 m wide flow-stripe troughs, so 40 m was chosen. Aspect ratio was rejected:
+  a pond chain is not elongated as a whole and a winding channel can have any ratio; width is what both lack.
+- **Ice-marginal exclusion** (`EXCLUDE_TOUCHING=1`): a site whose water touches the non-ice classes of the BedMachine
+  mask (ice-free land or ocean) is an ice-marginal lake (How et al. 2025's domain) and is excluded from the registry;
+  sites within 300 m of non-ice that do not touch it stay, flagged `ice_marginal`. Before the rule: 1 touching site on
+  19_39, 11 on 29_45 (20.5 km², the 9.7 km² fjord body among them).
+Result on 19_39 with both rules: 301 sites (5 lid + 3 appendage joins), 194 km²; Dunmire 139/139 and 215/217 unchanged;
+the 100 m × 1.5 km strip (old serial 214) is gone and no site is flagged thin; the one touching site (0.1 km²) excluded.

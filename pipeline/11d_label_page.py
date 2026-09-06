@@ -4,7 +4,7 @@ Reads out/11_chips/manifest.json + out/11_chips/jpg/*.jpg; writes out/11_label_p
 Run:  $(cat .python_env) scripts/11d_label_page.py"""
 import os, json, base64, hashlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "out"); CH = os.path.join(OUT, "11_chips")
-man = json.load(open(os.path.join(CH, "manifest.json")))
+TILE = os.environ.get("TILE", "19_39"); man = {k: v for k, v in json.load(open(os.path.join(CH, "manifest.json"))).items() if v.get("tile") == TILE}
 cases = []
 for cid, m in man.items():
     jp = os.path.join(CH, "jpg", f"{cid}.jpg")
@@ -12,7 +12,7 @@ for cid, m in man.items():
     cases.append(dict(id=cid, tile=m["tile"], pool=m["pool"], pieces=m["n_pieces"], gap=m["gap_m"], sites=m["site_ids"], dates=[m["dates"][str(y)] for y in m["seasons"]],
                       side=int(m["side_m"]), img="data:image/jpeg;base64," + base64.b64encode(open(jp, "rb").read()).decode()))
 cases.sort(key=lambda c: hashlib.md5(c["id"].encode()).hexdigest())  # one fixed shuffled order for every labeller
-html = r"""<title>Lake Closing Test</title>
+html = r"""<title>Lake Closing Test __TILE__</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--ground:#f1f5f9;--surface:#ffffff;--line:#d5dee7;--ink:#16232e;--muted:#5b6b79;--accent:#1e6fa8;--accent-ink:#ffffff;--one:#1f7a5a;--two:#b8641a;--unsure:#6b7280;--btn:#f7f9fb;--focus:#9cc4e4;}
@@ -55,7 +55,7 @@ textarea{font:inherit;font-size:13px;width:100%;box-sizing:border-box;border:1px
 .help{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 16px;font-size:14px;color:var(--muted);max-width:70ch}
 .help b{color:var(--ink);font-weight:500}
 </style>
-<header><h1>Lake closing test</h1><div class="prog"><span id="pcount" class="mono">0 / 0</span><div class="bar"><i id="pbar"></i></div></div><div class="who" id="who"></div></header>
+<header><h1>Lake closing test, tile __TILE__</h1><div class="prog"><span id="pcount" class="mono">0 / 0</span><div class="bar"><i id="pbar"></i></div></div><div class="who" id="who"></div></header>
 <div id="gate" class="gate"><h2>Who is labelling?</h2><p>Each person's answers are kept separately, and nobody sees the other's until the end.</p>
 <div class="btns"><button data-n="josh">Josh</button><button data-n="claude">Claude</button></div></div>
 <main id="app" hidden>
@@ -112,5 +112,5 @@ document.addEventListener("keydown", e => { if (!who || e.target.tagName === "TE
 try { const s = localStorage.getItem("labeller"); if (s) start(s); } catch(e){}
 </script>
 """
-out = os.path.join(OUT, "11_label_page.html"); open(out, "w").write(html.replace("__CASES__", json.dumps(cases)))
+out = os.path.join(OUT, f"11_label_page_{TILE}.html"); open(out, "w").write(html.replace("__CASES__", json.dumps(cases)).replace("__TILE__", TILE))
 print(f"{len(cases)} cases, {os.path.getsize(out)/1e6:.1f} MB -> {out}")

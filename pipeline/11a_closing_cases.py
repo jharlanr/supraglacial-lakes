@@ -26,6 +26,7 @@ for y in years:  # same per-year outline recipe as 08e
 pieces, npc = ndi.label(union, structure=S8); print(f"union pieces before closing: {npc}")
 multi = {}  # per site: max number of separate outlines in one season
 gdf = gpd.read_file(os.path.join(OUT, f"09_sites_{TILE}.geojson")).to_crs(3413)
+json.dump({r.site_id: r.geometry.wkt for r in gdf.itertuples()}, open(os.path.join(OUT, f"11_sites3413_{TILE}.json"), "w"))
 sy = pd.read_csv(os.path.join(OUT, f"09_site_years_{TILE}.csv"))
 site_r = rasterize(((g, int(s)) for g, s in zip(gdf.geometry, gdf.serial + 1)), out_shape=(N, N), transform=tr, fill=0, dtype="int32")
 # pieces per site: a piece belongs to the site covering most of it

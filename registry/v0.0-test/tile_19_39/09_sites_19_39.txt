@@ -1,23 +1,24 @@
-Sites v0.0, tile 19_39, seasons [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], appendage rule 50 m / 250 m / ratio 0.2 — 2026-09-06 14:46 PDT
+Sites v0.0, tile 19_39, seasons [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], appendage rule 50 m / 250 m / ratio 0.2 — 2026-09-06 15:42 PDT
 domain: BedMachine v6 ice mask, 98.8 % of the tile is ice
-  2016: 651 scenes, 206 outlines, 81.7 km2
-  2017: 572 scenes, 166 outlines, 69.3 km2
-  2018: 627 scenes, 171 outlines, 65.6 km2
-  2019: 637 scenes, 200 outlines, 107.7 km2
-  2020: 637 scenes, 178 outlines, 75.3 km2
-  2021: 639 scenes, 199 outlines, 83.6 km2
-  2022: 644 scenes, 194 outlines, 66.7 km2
-  2023: 615 scenes, 169 outlines, 77.3 km2
-  2024: 641 scenes, 184 outlines, 63.9 km2
-  2025: 946 scenes, 185 outlines, 67.4 km2
-sites: 303 from 312 union pieces; 5 lid joins (gap <= 50.0 m), 4 appendage joins (gap <= 250.0 m, ratio < 0.2); total 196.1 km2
-Dunmire 2018: 139 lakes in tile; 139 touch a site, 139 covered >=50 %, 1 span >=2 sites; sites holding >=2 2018 lakes: 7
-Dunmire 2019: 217 lakes in tile; 215 touch a site, 214 covered >=50 %, 1 span >=2 sites; sites holding >=2 2019 lakes: 10
-ice-marginal sites (within 300 m of non-ice): 2; thin sites (widest point <= 60 m): 1
-sites by years present (of 10): 1:54, 2:36, 3:18, 4:23, 5:15, 6:16, 7:16, 8:19, 9:36, 10:70
-sites with centroid in a 32 m depression: 69 %; with >=50 % of area in one: 60 %; entirely outside: 23 %
-  sites 0-0.1 km2: n=51, centroid in depression 35 %, median years present 1
-  sites 0.1-0.2 km2: n=64, centroid in depression 48 %, median years present 3
-  sites 0.2-0.5 km2: n=76, centroid in depression 76 %, median years present 7
-  sites 0.5-1 km2: n=62, centroid in depression 92 %, median years present 9
-  sites 1-100 km2: n=50, centroid in depression 88 %, median years present 10
+  2016: 651 scenes, 207 outlines, 81.0 km2
+  2017: 572 scenes, 167 outlines, 68.9 km2
+  2018: 627 scenes, 166 outlines, 64.9 km2
+  2019: 637 scenes, 202 outlines, 107.3 km2
+  2020: 637 scenes, 179 outlines, 74.9 km2
+  2021: 639 scenes, 201 outlines, 82.9 km2
+  2022: 644 scenes, 195 outlines, 66.0 km2
+  2023: 615 scenes, 170 outlines, 76.7 km2
+  2024: 641 scenes, 182 outlines, 63.3 km2
+  2025: 946 scenes, 184 outlines, 66.6 km2
+excluded 1 sites touching non-ice (0.1 km2); 301 sites remain
+sites: 301 from 310 union pieces; 5 lid joins (gap <= 50.0 m), 3 appendage joins (gap <= 250.0 m, ratio < 0.2); total 194.0 km2
+Dunmire 2018: 139 lakes in tile; 139 touch a site, 139 covered >=50 %, 1 span >=2 sites; sites holding >=2 2018 lakes: 6
+Dunmire 2019: 217 lakes in tile; 215 touch a site, 214 covered >=50 %, 1 span >=2 sites; sites holding >=2 2019 lakes: 9
+ice-marginal sites (within 300 m of non-ice): 1; thin sites (widest point <= 60 m): 0
+sites by years present (of 10): 1:54, 2:34, 3:19, 4:23, 5:13, 6:16, 7:17, 8:21, 9:34, 10:70
+sites with centroid in a 32 m depression: 70 %; with >=50 % of area in one: 61 %; entirely outside: 23 %
+  sites 0-0.1 km2: n=50, centroid in depression 36 %, median years present 1
+  sites 0.1-0.2 km2: n=61, centroid in depression 51 %, median years present 3
+  sites 0.2-0.5 km2: n=78, centroid in depression 76 %, median years present 7
+  sites 0.5-1 km2: n=63, centroid in depression 92 %, median years present 9
+  sites 1-100 km2: n=49, centroid in depression 90 %, median years present 10
