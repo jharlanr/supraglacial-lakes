@@ -1,0 +1,21 @@
+Appendage-rule scoring on tile 29_45, 172 labelled cases (label 3 excluded per labeller). 'joined' = the case's bodies end in one site.
+
+[50 m always | 150 m if ratio < 0.2]  sites joined: joined-pool 10/16, lid-pool 37/35, apart-pool 0/54
+   vs josh: agree 145/165 (88 %); false merges 11, false splits 9  -> G00178:FM; G00074:FM; G00010:FM; G00025:FS; G00064:FM; G00284:FS; G00029:FS; G00042:FM; G00060:FS; G00212:FM; G00113:FM; G00055:FM; G00299:FM; G00164:FM; G00115:FM; G00060..:FS; G00097..:FS; G00191..:FS; G00095..:FS; G00129..:FS
+   vs claude: agree 136/152 (89 %); false merges 13, false splits 3  -> G00000:FM; G00178:FM; G00180:FS; G00074:FM; G00102:FM; G00029:FS; G00042:FM; G00212:FM; G00191:FM; G00113:FM; G00156:FM; G00055:FM; G00112:FM; G00164:FM; G00115:FM; G00129..:FS
+
+[50 m always | 200 m if ratio < 0.2]  sites joined: joined-pool 13/16, lid-pool 37/35, apart-pool 0/54
+   vs josh: agree 148/165 (90 %); false merges 11, false splits 6  -> G00178:FM; G00074:FM; G00010:FM; G00064:FM; G00029:FS; G00042:FM; G00212:FM; G00113:FM; G00055:FM; G00299:FM; G00164:FM; G00115:FM; G00060..:FS; G00097..:FS; G00191..:FS; G00095..:FS; G00129..:FS
+   vs claude: agree 135/152 (89 %); false merges 14, false splits 3  -> G00000:FM; G00178:FM; G00180:FS; G00074:FM; G00102:FM; G00284:FM; G00029:FS; G00042:FM; G00212:FM; G00191:FM; G00113:FM; G00156:FM; G00055:FM; G00112:FM; G00164:FM; G00115:FM; G00129..:FS
+
+[50 m always | 200 m if ratio < 0.25]  sites joined: joined-pool 13/16, lid-pool 37/35, apart-pool 2/54
+   vs josh: agree 146/165 (88 %); false merges 13, false splits 6  -> G00178:FM; G00074:FM; G00010:FM; G00064:FM; G00029:FS; G00042:FM; G00212:FM; G00113:FM; G00055:FM; G00299:FM; G00164:FM; G00115:FM; G00060..:FS; G00097..:FS; G00152..:FM; G00191..:FS; G00095..:FS; G00214..:FM; G00129..:FS
+   vs claude: agree 133/152 (88 %); false merges 16, false splits 3  -> G00000:FM; G00178:FM; G00180:FS; G00074:FM; G00102:FM; G00284:FM; G00029:FS; G00042:FM; G00212:FM; G00191:FM; G00113:FM; G00156:FM; G00055:FM; G00112:FM; G00164:FM; G00115:FM; G00152..:FM; G00214..:FM; G00129..:FS
+
+[50 m always | 250 m if ratio < 0.2]  sites joined: joined-pool 17/16, lid-pool 37/35, apart-pool 0/54
+   vs josh: agree 146/165 (88 %); false merges 14, false splits 5  -> G00178:FM; G00180:FM; G00074:FM; G00010:FM; G00152:FM; G00068:FM; G00064:FM; G00042:FM; G00212:FM; G00113:FM; G00055:FM; G00299:FM; G00164:FM; G00115:FM; G00060..:FS; G00097..:FS; G00191..:FS; G00095..:FS; G00129..:FS
+   vs claude: agree 135/152 (89 %); false merges 16, false splits 1  -> G00000:FM; G00178:FM; G00074:FM; G00102:FM; G00152:FM; G00068:FM; G00284:FM; G00042:FM; G00212:FM; G00191:FM; G00113:FM; G00156:FM; G00055:FM; G00112:FM; G00164:FM; G00115:FM; G00129..:FS
+
+[150 m always | 150 m if ratio < 1.0]  sites joined: joined-pool 10/16, lid-pool 37/35, apart-pool 17/54
+   vs josh: agree 132/165 (80 %); false merges 25, false splits 8  -> G00178:FM; G00074:FM; G00010:FM; G00025:FS; G00064:FM; G00284:FS; G00029:FS; G00042:FM; G00060:FS; G00212:FM; G00113:FM; G00055:FM; G00299:FM; G00164:FM; G00115:FM; G00060..:FS; G00084..:FM; G00097..:FS; G00056..:FM; G00111..:FM; G00111..:FM; G00111..:FM; G00110..:FM; G00110..:FM; G00108..:FM; G00144..:FM; G00138..:FM; G00138..:FM; G00152..:FM; G00182..:FM; G00191..:FS; G00129..:FS; G00288..:FM
+   vs claude: agree 121/152 (80 %); false merges 28, false splits 3  -> G00000:FM; G00178:FM; G00180:FS; G00074:FM; G00102:FM; G00029:FS; G00042:FM; G00212:FM; G00191:FM; G00113:FM; G00156:FM; G00055:FM; G00112:FM; G00164:FM; G00115:FM; G00084..:FM; G00056..:FM; G00111..:FM; G00111..:FM; G00111..:FM; G00110..:FM; G00110..:FM; G00108..:FM; G00144..:FM; G00138..:FM; G00138..:FM; G00152..:FM; G00182..:FM; G00095..:FM; G00129..:FS; G00288..:FM

@@ -273,6 +273,32 @@ whole anything that has a wide body" — and that is the existing 50 m core rule
 if any part of it is ≥ 50 m wide, so a lone channel goes and a channel attached to a lake stays with the lake. `MINW_PX`
 now defaults to 0 (knob kept); the core rule is the width rule. Pond chains with wide ponds remain one object.
 
+## 8d. Closing-accuracy test repeated on tile 29_45 (2026-09-06 evening; 172 cases, both labelled independently)
+
+Same protocol as §8 on the NE tile (`scripts/11a`–`11e`, `TILE=29_45`; page `out/11_label_page_29_45.html`,
+artifact e4df0c19; labels `out/11_labels_both_29_45.csv`; scores `out/11_rule_scores_29_45.txt`). Pools: 17 joined,
+37 lid, 118 apart (pairs within 1 km). Agreement Josh/Claude 144/172 (84 %; 19_39 was 80 %). Half the disagreements
+are Claude's "can't tell" on things that are not lakes at all: stream channels (G00025, G00028, G00123), flow-stripe
+troughs (G00109), two swath-edge lines (G00172 twice; needs the EDGE_PX=3 re-export), fjord-margin slush
+(G00099/G00147/G00153 and neighbours; the touching rule removes these in the rebuild).
+
+| setting (all / appendage / ratio) | vs Josh | vs Claude | apart-pool pairs it joins |
+|---|---|---|---|
+| 50 / 150 / 0.2 | 88 % | 89 % | 0 of 54 |
+| 50 / 200 / 0.2 | 90 % | 89 % | 0 |
+| 50 / 250 / 0.2 (adopted) | 88 % | 89 % | 0 |
+| 150 m flat closing (old) | 80 % | 80 % | 17 |
+
+The adopted setting scores the same on the second tile as on the first (19_39: 88 / 93 %), and the flat closing is
+again the worst by 8–10 points, so the rule is not tuned to 19_39. The 200 m appendage distance is one to two cases
+better than 250 m here and one case worse on 19_39: within noise, keep 250 m.
+
+What the rule cannot fix, and that is now the dominant residual: **lid-pool false merges**, where two neighbouring
+lakes touch in one wet season (G00212, G00113, G00055, G00164, G00115, G00191, G00156, G00112 on this tile; both of
+us call them two lakes). No join distance separates bodies that physically merge; that needs a split rule, and the
+natural one is the DEM basin (§3): a site whose union spans two DEM depressions of comparable size is two sites. This
+is the second of Josh's two named failure modes from 2026-09-04 and it is the next test to run.
+
 ## 12. Compute route for Greenland-wide (decided 2026-09-06 evening, Josh): Level-1C from Copernicus Data Space, on Sherlock
 
 Earth Engine's noncommercial tier (150 EECU-hours/month; two tiles × ten seasons spent it) cannot carry the ~67 lake-zone
@@ -288,3 +314,13 @@ Test plan before scaling (none started; needs Josh's Copernicus account keys on 
 site builder unchanged, compare outlines and Dunmire recall with the Earth Engine result, record wall-clock and
 bytes; 3. ten tile-seasons as a ten-node array job (throttling, Greenland-scale estimate). No 20 m or per-day cuts:
 parallelism covers the volume.
+
+### 12b. Measured Earth Engine cost (2026-09-06 evening; `batch_eecu_usage_seconds` from the task records)
+
+Per tile-season: 19_39 10–38 EECU-h (18 mean; 572–946 scenes), 29_45 69–149 EECU-h (104 mean; 1 643–2 409 scenes).
+Both tiles, ten seasons: **1 226 EECU-h**, eight times the Community quota — the project was let run past it, then
+put into restricted mode. Two causes beyond scene count: 08a also reduced the surface-reflectance collection (unused
+band `n_w50_sr`; it doubles the reads from 2019 on), and everything ran at 10 m over four bands. A Greenland backfill at
+this cost would be ~25 000 EECU-h (~$10 000 on-demand, or two years on the Contributor tier), so the lean recipe is
+not optional. Levers being tested on 19_39/2019: drop SR; two bands (B2, B4) and no per-scene margin mask (the
+BedMachine mask covers rock and ocean); reduce and export at 20 m (pyramid reads). Results follow in §12c.
