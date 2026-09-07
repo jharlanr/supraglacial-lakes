@@ -1,0 +1,5 @@
+Lean-recipe comparison, tile 19_39, season 2019 (full recipe: 4 bands, margin mask, SR reduced; 10 m)
+
+[_lean10 (10 m)] water-pixel IoU 1.000 (ref 104.2 km2, new 104.2 km2); outlines ref 200 (107.7 km2) vs new 200 (107.7 km2), outline IoU 1.000; Dunmire 2019 touched: ref 191/217, new 191/217
+
+[_lean20 (20 m vs full aggregated to 20 m)] water-pixel IoU 0.859 (ref 115.3 km2, new 99.9 km2); outlines ref 221 (114.2 km2) vs new 197 (101.0 km2), outline IoU 0.880; Dunmire 2019 touched: ref 192/217, new 191/217

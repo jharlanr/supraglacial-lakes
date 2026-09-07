@@ -324,3 +324,25 @@ band `n_w50_sr`; it doubles the reads from 2019 on), and everything ran at 10 m 
 this cost would be ~25 000 EECU-h (~$10 000 on-demand, or two years on the Contributor tier), so the lean recipe is
 not optional. Levers being tested on 19_39/2019: drop SR; two bands (B2, B4) and no per-scene margin mask (the
 BedMachine mask covers rock and ocean); reduce and export at 20 m (pyramid reads). Results follow in §12c.
+
+### 12c. Lean-recipe results, tile 19_39, season 2019 (2026-09-06 evening; `scripts/14_lean_compare.py`, `out/14_lean_compare_19_39_2019.txt`)
+
+| variant | EECU-h | vs full | water-pixel IoU | outlines (km²) | Dunmire 2019 touched |
+|---|---|---|---|---|---|
+| full (four bands, SR pass, margin mask, 10 m) | 19.0 | 1.00 | — | 200 (107.7) | 191/217 |
+| lean, 10 m (B2+B4 only, no SR, no margin mask) | 16.2 | 0.85 | 1.000 | 200 (107.7), identical | 191/217 |
+| lean, 20 m (same, reduced and exported at 20 m) | 5.2 | 0.27 | 0.859 vs the 2×2-max aggregate | 197 (101.0) | 191/217 |
+
+Two findings. (1) The 10 m lean recipe is **bit-identical** to the full one and saves only 15 %: the extra bands, the
+SR pass and the per-scene mask were not where the money went. The cost is reading Level-1C at 10 m over every scene.
+(2) Exporting at 20 m cuts the cost by 3.7× with no change in Dunmire recall; outlines are 3 fewer (of 200) and 6 %
+smaller in area (Earth Engine's pyramid mean at 20 m is a slightly stricter water test than "any 10 m pixel", so the
+0.859 pixel IoU against the 2×2-max aggregate overstates the difference). The 0.05 km² threshold is 125 pixels at
+20 m, still comfortably above noise.
+
+Implication for Greenland: at the 20 m rate the backfill is roughly 25 000 × 0.27 ≈ 7 000 EECU-h — about
+$2 800 on-demand, or seven months on the free Contributor tier, or one Partner application. The NE tile costs five
+times the CW tile per season because of polar orbit overlap (1 600–2 400 scenes against 570–950), so a Greenland
+estimate has to be weighted by latitude, and this figure is the CW-weighted floor. Further levers not yet tried:
+drop the `n_w30` band (one fewer reduction), and a June-to-September date window trimmed to the melt season per
+latitude. Decision on 20 m is Josh's; if adopted, 08e and 11a need pixel-size awareness (they assume 10 m, N = 10 000).
