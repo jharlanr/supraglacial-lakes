@@ -346,3 +346,29 @@ times the CW tile per season because of polar orbit overlap (1 600–2 400 scene
 estimate has to be weighted by latitude, and this figure is the CW-weighted floor. Further levers not yet tried:
 drop the `n_w30` band (one fewer reduction), and a June-to-September date window trimmed to the melt season per
 latitude. Decision on 20 m is Josh's; if adopted, 08e and 11a need pixel-size awareness (they assume 10 m, N = 10 000).
+
+### 12d. Imagery volume by cloud cut, 20 m Level-2A from Copernicus Data Space (2026-09-06 evening; catalogue counts only, `out/15_cdse_cloud_counts.txt`)
+
+Josh: go to 20 m (settled by §12c) and drop granules above a scene-cloud cut. Counted with the free OData catalogue
+(no account, no quota): Sentinel-2 L2A products intersecting a generous Greenland polygon, June 1–Oct 1, per season
+2016–2025, by the `cloudCover` attribute. The catalogue holds only the Collection-1 reprocessed products
+(baseline 05.00, complete back to 2016, L2A included), so the counts are unique granules and the "L2A is patchy
+before 2019" problem does not apply to CDSE. Product sizes sampled over 5 000 granules: mean 580 MB (17 % are full
+1.05 GB granules, the rest swath-edge partials); the two 20 m bands B02+B04 are 7.2 % of a product, so ~42 MB per
+granule on average. A real ice-sheet outline (BedMachine ice, 15 km buffer) gives 7 % fewer granules than the
+generous polygon; that factor is applied below. 2016 has half the scenes (S2A only); 2025 has 25 % more (S2C).
+
+| cloud cut | granules, 10 seasons | two 20 m bands | months at 12 TB/30 d |
+|---|---|---|---|
+| none | 891,059 | 37 TB | 3.1 |
+| <95 | 625,546 | 26 TB | 2.2 |
+| <90 | 578,987 | 24 TB | 2.0 |
+| <80 | 515,542 | 22 TB | 1.8 |
+| <70 | 464,942 | 20 TB | 1.6 |
+| <50 | 377,867 | 16 TB | 1.3 |
+| <30 | 291,852 | 12 TB | 1.0 |
+
+The first cut is the big one: a third of all granules are more than 95 % cloud. Below 90 % the curve is gentle, so a
+90 % cut costs little and a 50 % cut saves only another third. At the free-tier quota, **a 90 % cut is two months of
+streaming; the rate limit itself (80 MB/s) is under four days.** Whether a 90 % cut changes the lake counts is
+untested; the test is one lean-20 m export of 19_39/2019 with the filter (~5 EECU-h), to run when Josh says so.
