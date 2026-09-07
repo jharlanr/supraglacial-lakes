@@ -372,3 +372,84 @@ The first cut is the big one: a third of all granules are more than 95 % cloud. 
 90 % cut costs little and a 50 % cut saves only another third. At the free-tier quota, **a 90 % cut is two months of
 streaming; the rate limit itself (80 MB/s) is under four days.** Whether a 90 % cut changes the lake counts is
 untested; the test is one lean-20 m export of 19_39/2019 with the filter (~5 EECU-h), to run when Josh says so.
+
+## 13. The lake definition, settled (2026-09-07, Josh)
+
+Josh: *"I'm fine with the rule we had before, even if a few basins end up with usually two blobs of water that
+only sometimes touch, we can call that one lake."* **No split rule.** Coalescence inside one connected piece of the
+ten-season union is accepted as one lake. This closes the dominant residual from §8d — it is a deliberate choice,
+not an unsolved problem, and it should be stated that way in the paper.
+
+What the choice buys: the definition stays purely observational and needs no DEM, no second surface, and no
+threshold that a reviewer can move. What it costs: a site can be a basin pair that merges in wet years, so
+site area in a wet year is not always "one lake's area". Users who need the tighter object can cut a site by
+water body per season — the per-season outlines are kept, so nothing is lost, it is just not the identity.
+
+### 13a. The definition, stated in metres (v0.0 frozen)
+
+Restated resolution-independently, because the ID task moves to 20 m (§12c) and the code is written in pixels.
+A **lake site** is:
+
+| # | Rule | Value | Was, in 10 m pixels |
+|---|---|---|---|
+| 1 | Imagery | Sentinel-2 L1C (TOA), harmonized, June 1 – Oct 1, every scene, no per-scene cloud filter | — |
+| 2 | Water test | NDWI(B2, B4) > 0.5 | — |
+| 3 | Swath-edge trim | erode valid data by **30 m** | `EDGE_PX=3` |
+| 4 | Scene QA | drop a scene whose tile water area exceeds 3× the median of the season's ten largest | `QA_FACTOR=3` |
+| 5 | Season composite | a pixel is water in a season if water in **≥ 1** kept scene | — |
+| 6 | Hole/neck closing | morphological closing, disk of radius **50 m** | `disk(5)` |
+| 7 | Minimum area | **0.05 km²** | `MIN_PX=500` |
+| 8 | Fill test | ≥ **50 %** of the closed blob must be actually-water pixels | `FILL=0.5` |
+| 9 | Core test | the outline must contain a disk **50 m** across | `binary_erosion(disk(2))` |
+| 10 | Site = union | union of the per-season outlines over the basis seasons | — |
+| 11 | Gap joining | appendage rule: join if gap ≤ **50 m**; or gap ≤ **250 m** and the smaller body < **0.2** of the larger | already in metres |
+| 12 | Split | **none** (this section) | — |
+| 13 | Domain | BedMachine v6 ice (grounded + floating); sites touching non-ice excluded | see §13c |
+| 14 | Basis | seasons 2016–2025; new lakes append, serials never reused | §2 |
+
+Rules 3, 6, 7, 9 are the ones written in pixels today. **At 20 m, rules 6 and 9 are at the resolution limit**: a
+50 m disk is 2.5 pixels. They must be rounded to a stated pixel count (60 m closing = disk(3), 60 m core =
+erosion by disk(1) at 20 m are the natural choices) and the result re-checked against Dunmire on one tile before
+the Greenland run. Rule 7 is safe (0.05 km² = 125 px at 20 m).
+
+### 13b. Tested and rejected: the persistence split rule (2026-09-07, `scripts/16_persistence_split.py`)
+
+Recorded so it is not re-proposed. Built a persistence surface — per pixel, in how many of the ten seasons it was
+inside a kept outline (`out/16_nsea_{TILE}.npy`, 19_39: 196 km² ever water, 143 in ≥3 seasons, 28 in all ten;
+29_45: 346 / 197 / 9) — and split sites by max-tree prominence on it, the same device as `MIN_PROM=3` on the DEM.
+Scored on the 79 single-piece joined/lid cases from the closing test, of which Josh called 16 two lakes:
+
+| rule | accuracy vs Josh | splits fired | right | wrong |
+|---|---|---|---|---|
+| **never split (baseline)** | **0.797** | 0 | — | — |
+| prominence ≥ 3 seasons | 0.633 | 29 | 8 | 21 |
+| prominence ≥ 4 | 0.709 | 23 | 8 | 15 |
+| prominence ≥ 5 | 0.797 | 16 | 8 | 8 |
+
+At its best setting it exactly ties doing nothing and the splits it fires are a coin flip. **All 21 over-splits are
+lid cases**, which is the diagnosis: a lid recurs in the same place every year because it forms where the lake is
+shallow, and shallow is a stable property — so a recurring lid and a rarely-touching neck are *the same signal* at
+season resolution. Persistence can see that a neck exists; it cannot say which kind it is. Two of Josh's eight
+named merge cases (G00113, G00212) have their whole site present in ≤ 2 seasons, so the surface is flat there and
+the rule is structurally blind. Separating the two would need within-season scene persistence or the DEM; §13
+makes both unnecessary.
+
+Caveat on those numbers: both tiles were rebuilt after the closing test was labelled, so `case_id` no longer
+matches a site and cases were re-linked to current sites by window overlap (51 of 53 on each tile). The re-link is
+a proxy; the eight "missed" cases are all pool `joined`, which is consistent with re-link drift.
+
+### 13c. Still open in the definition (not compute)
+
+1. **The ice-edge touching rule** (§8d caveat): excluding any site that touches non-ice cost five Dunmire lakes on
+   29_45 that sit 335–541 m *inside* the ice edge. Candidate softening: exclude only if the 50 m core touches
+   non-ice, or if more than half the site is within 300 m of it. Josh's call; it is the last recall-costing rule.
+2. **Rules 6 and 9 at 20 m** (§13a) — round to 60 m and re-check on one tile.
+3. `EDGE_PX=3` re-export of both tiles (two swath-edge lines survive in 29_45, G00172) — an artefact fix, not a
+   definition change.
+
+### 13d. Export bug found while doing this (2026-09-07)
+
+`08a` writes counts with `.toUint8()`. On 29_45, with ~1 900 scenes a season, **`n_obs` is saturated at 255 for
+78.6 % of pixels** and `n_w50_toa` saturates too. Season-level work is unaffected (it only asks `≥ 1`), and the
+19_39 counts are fine (`n_obs` saturated on 0.96 % of pixels, `n_w50` max 55), but any scene-level use of the
+29_45 counts is invalid, and **the Greenland export must write uint16**.
