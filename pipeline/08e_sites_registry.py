@@ -17,35 +17,47 @@ from shapely.ops import unary_union
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.colors import LightSource
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "out")
-TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); MIN_PX = 500; FILL = 0.5; MINW_PX = int(os.environ.get("MINW_PX", "0")); EXCLUDE_TOUCHING = os.environ.get("EXCLUDE_TOUCHING", "1") == "1"
+TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); FILL = 0.5; MINW_PX = int(os.environ.get("MINW_PX", "0")); EXCLUDE_TOUCHING = os.environ.get("EXCLUDE_TOUCHING", "1") == "1"
+# spec 13a: the definition is stated in METRES and every length is rounded UP to whole pixels, so the
+# same rule gives the same lake at 10 m and at 20 m.  TOUCH_RULE: "core" (spec 13c.1, the site's 50 m
+# core must reach non-ice) or "any" (the old rule: one fringe pixel of contact excluded the site).
+CLOSE_M = float(os.environ.get("CLOSE_M", "50")); CORE_M = float(os.environ.get("CORE_M", "50"))
+MIN_AREA_KM2 = float(os.environ.get("MIN_AREA_KM2", "0.05")); TOUCH_RULE = os.environ.get("TOUCH_RULE", "exterior")
 pref = f"08_s2counts_{TILE}_"
 years = sorted(int(os.path.basename(f)[len(pref):].split("_")[0]) for f in glob.glob(os.path.join(OUT, pref + "*_meta.json")))
 meta = json.load(open(os.path.join(OUT, f"{pref}{years[0]}_meta.json"))); tr = Affine(*meta["transform"]); N = meta["shape"][0]
+PX = abs(tr.a)                                    # pixel size in m, from the export (10 or 20)
+import math
+R_CLOSE = max(1, math.ceil(CLOSE_M / PX))          # closing disk radius, px  (50 m -> 5 px at 10 m, 3 px at 20 m)
+R_CORE  = max(1, math.ceil(CORE_M / 2 / PX))       # erosion radius for the core, px (50 m across)
+MIN_PX  = int(math.ceil(MIN_AREA_KM2 * 1e6 / PX ** 2))   # 0.05 km2 -> 500 px at 10 m, 125 px at 20 m
 x0, y0, x1, y1 = meta["x0"], meta["y0"], meta["x1"], meta["y1"]
 S8 = np.ones((3, 3), bool)
 def disk(r):
     y, x = np.ogrid[-r:r + 1, -r:r + 1]; return (x * x + y * y) <= r * r
-lines = [f"Sites v0.0, tile {TILE}, seasons {years}, appendage rule {JOIN_ALL_M:.0f} m / {JOIN_APP_M:.0f} m / ratio {APP_RATIO} — {time.strftime('%Y-%m-%d %H:%M %Z')}"]
+lines = [f"Sites v0.0, tile {TILE}, {PX:.0f} m, seasons {years}, closing {CLOSE_M:.0f} m ({R_CLOSE} px), core {CORE_M:.0f} m, min area {MIN_AREA_KM2} km2 ({MIN_PX} px), touch rule {TOUCH_RULE}, appendage {JOIN_ALL_M:.0f} m / {JOIN_APP_M:.0f} m / ratio {APP_RATIO} — {time.strftime('%Y-%m-%d %H:%M %Z')}"]
 def say(s): print(s); lines.append(s)
 
 # 0. domain: the ice sheet (BedMachine v6 mask, grounded + floating ice, from 08g), nearest-upsampled to the 10 m grid
 imf = os.path.join(OUT, f"{TILE}_icemask_150m.npy")
 if os.path.exists(imf):
     im = np.load(imf); imm = json.load(open(os.path.join(OUT, f"{TILE}_icemask_150m_meta.json")))
-    xc = x0 + 10 * (np.arange(N) + 0.5); yc = y1 - 10 * (np.arange(N) + 0.5)
+    xc = x0 + PX * (np.arange(N) + 0.5); yc = y1 - PX * (np.arange(N) + 0.5)
     cols = np.clip(np.rint((xc - imm["x_col0"]) / 150).astype(int), 0, im.shape[1] - 1); rows = np.clip(np.rint((imm["y_row0"] - yc) / 150).astype(int), 0, im.shape[0] - 1)
     ice = im[rows[:, None], cols[None, :]]; say(f"domain: BedMachine v6 ice mask, {ice.mean()*100:.1f} % of the tile is ice")
+    exf = os.path.join(OUT, f"{TILE}_extnonice_150m.npy")   # non-ice connected to outside the ice sheet (08g)
+    ext_nonice = np.load(exf)[rows[:, None], cols[None, :]] if os.path.exists(exf) else None
 else:
-    ice = np.ones((N, N), bool); say("domain: no ice mask file (08g) — whole tile treated as ice")
+    ice = np.ones((N, N), bool); ext_nonice = None; say("domain: no ice mask file (08g) — whole tile treated as ice")
 
 # 1. per-year outlines
 ylab = {}; yrows = []
 for y in years:
     arr = np.load(os.path.join(OUT, f"{pref}{y}_n_w50_toa.npy")); arr = np.where(ice, arr, 0)
-    w = ndi.binary_closing(arr >= 1, structure=disk(5)); lab, _ = ndi.label(w, structure=S8)
+    w = ndi.binary_closing(arr >= 1, structure=disk(R_CLOSE)); lab, _ = ndi.label(w, structure=S8)
     cnt = np.bincount(lab.ravel()); ids = np.flatnonzero(cnt >= MIN_PX); ids = ids[ids > 0]
     fill = ndi.mean((arr >= 1).astype(float), lab, ids); keep = ids[fill >= FILL]
-    core = ndi.maximum(ndi.binary_erosion(np.isin(lab, keep), structure=disk(2)).astype(np.uint8), lab, keep).astype(bool); keep = keep[core]  # must contain a 50 m wide core (drops swath-edge lines)
+    core = ndi.maximum(ndi.binary_erosion(np.isin(lab, keep), structure=disk(R_CORE)).astype(np.uint8), lab, keep).astype(bool); keep = keep[core]  # must contain a 50 m wide core (drops swath-edge lines)
     M = np.isin(lab, keep)
     if MINW_PX:  # minimum width 2*MINW_PX*10 m (Josh 2026-09-06: 40 m): open, then grow back inside the outline so shapes keep, channels and necks go
         M = ndi.binary_dilation(ndi.binary_opening(M, structure=disk(MINW_PX)), structure=disk(MINW_PX)) & M
@@ -86,10 +98,31 @@ lut = np.zeros(npieces + 1, np.int32)
 for p, rt in root.items(): lut[p] = site_of_root[rt]
 slab = lut[plab]; spx = np.bincount(slab.ravel()); ids = np.flatnonzero(spx >= MIN_PX); ids = ids[ids > 0]
 slab = np.where(np.isin(slab, ids), slab, 0)
-edge = ndi.distance_transform_edt(ice) * 10.0  # distance to non-ice (rock, ocean) on the BedMachine mask, m
-if EXCLUDE_TOUCHING:  # Josh 2026-09-06: water that touches rock or ocean is an ice-marginal lake, not a supraglacial one
-    e0 = ndi.minimum(edge, slab, ids); touching = ids[e0 == 0]; ids = ids[e0 > 0]; slab = np.where(np.isin(slab, ids), slab, 0)
-    say(f"excluded {len(touching)} sites touching non-ice ({spx[touching].sum()*1e-4:.1f} km2); {len(ids)} sites remain")
+edge = ndi.distance_transform_edt(ice) * PX  # distance to non-ice (rock, ocean) on the BedMachine mask, m
+if EXCLUDE_TOUCHING:  # water that reaches rock or ocean is an ice-marginal lake (How 2025's inventory), not a supraglacial one
+    if TOUCH_RULE == "exterior":
+        # spec 13c.1 (2026-09-07): a supraglacial lake may abut a NUNATAK; an ice-marginal lake reaches the
+        # EDGE of the ice sheet.  The water mask is clipped to ice before the closing, so a site can only hold
+        # non-ice pixels where rule 6's closing bridged them — under the old "any non-ice" rule a bridge over a
+        # stray interior mask cell deleted the whole lake (three Dunmire lakes on 29_45).  Testing only against
+        # non-ice connected to the outside of the ice sheet (08g, flood-filled from a padded window so it does
+        # not depend on the tile cut) keeps those and still excludes the large marginal bodies.
+        if ext_nonice is None: raise SystemExit("TOUCH_RULE=exterior needs out/{TILE}_extnonice_150m.npy — run 08g first")
+        hit = ndi.maximum(ext_nonice.astype(np.uint8), slab, ids)
+        e0 = np.where(np.atleast_1d(hit) > 0, 0.0, 1.0)      # 0 = reaches the ice-sheet exterior
+    elif TOUCH_RULE == "core":
+        # spec 13c.1: the site's 50 m CORE must reach non-ice.  The closing (rule 6) runs after the ice
+        # mask, so it can push a fringe pixel across the boundary; under the old "any pixel" rule that
+        # single pixel excluded the whole lake, which cost five Dunmire lakes on 29_45 sitting 335-541 m
+        # inside the ice edge.  Using the core reuses rule 9's 50 m disk and adds no new constant.
+        core = ndi.binary_erosion(slab > 0, structure=disk(R_CORE))
+        e0 = ndi.minimum(np.where(core, edge, np.inf), slab, ids)
+        e0 = np.where(np.isfinite(e0), e0, np.inf)      # a site with no core left: nothing to test, keep it
+    else:
+        e0 = ndi.minimum(edge, slab, ids)
+    touching = ids[e0 == 0]; ids = ids[e0 > 0]; slab = np.where(np.isin(slab, ids), slab, 0)
+    say(f"excluded {len(touching)} sites ({TOUCH_RULE} rule) reaching non-ice "
+        f"({spx[touching].sum()*1e-4:.1f} km2); {len(ids)} sites remain")
 pd.DataFrame(joins).to_csv(os.path.join(OUT, f"09_joins_{TILE}.csv"), index=False)
 say(f"sites: {len(ids)} from {npieces} union pieces; {n_all} lid joins (gap <= {JOIN_ALL_M} m), {n_app} appendage joins (gap <= {JOIN_APP_M} m, ratio < {APP_RATIO}); total {spx[ids].sum()*1e-4:.1f} km2")
 
@@ -111,7 +144,7 @@ def up(a32, smooth=False):  # 32 m tile array -> 10 m grid of this tile (same or
         if h < N: out[h:, :] = out[h - 1:h, :]
         if w < N: out[:, w:] = out[:, w - 1:w]
         return out
-    r = (np.arange(N) * 10 // 32).clip(0, a32.shape[0] - 1); c = (np.arange(N) * 10 // 32).clip(0, a32.shape[1] - 1)
+    r = (np.arange(N) * PX // 32).astype(int).clip(0, a32.shape[0] - 1); c = (np.arange(N) * PX // 32).astype(int).clip(0, a32.shape[1] - 1)
     return a32[np.ix_(r, c)]
 depth = up(np.load(os.path.join(OUT, f"{TILE}_depth.npy"))); sinks = up(np.load(os.path.join(OUT, f"{TILE}_sinks.npy"))); subs = up(np.load(os.path.join(OUT, f"{TILE}_subbasins.npy")))
 frac_sink = ndi.mean((sinks > 0).astype(float), slab, ids); maxdepth = ndi.maximum(np.nan_to_num(depth), slab, ids)
@@ -119,7 +152,7 @@ main_sub = []
 for i in ids:
     s = subs[slab == i]; s = s[s > 0]; main_sub.append(int(np.bincount(s).argmax()) if s.size else 0)
 ice_edge_m = ndi.minimum(edge, slab, ids)
-halfw = ndi.maximum(ndi.distance_transform_edt(slab > 0) * 10.0, slab, ids)  # widest point of the site (m); <= 60 m flags line-like sites for review  # distance from the site's nearest pixel to non-ice (BedMachine mask)
+halfw = ndi.maximum(ndi.distance_transform_edt(slab > 0) * PX, slab, ids)  # widest point of the site (m); <= 60 m flags line-like sites for review  # distance from the site's nearest pixel to non-ice (BedMachine mask)
 cy, cx = zip(*ndi.center_of_mass(slab > 0, slab, ids)); cxg = np.array([tr * (c, r) for r, c in zip(cy, cx)])
 cent_in_sink = sinks[np.clip(np.array(cy).astype(int), 0, N - 1), np.clip(np.array(cx).astype(int), 0, N - 1)] > 0
 

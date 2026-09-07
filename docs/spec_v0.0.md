@@ -438,7 +438,7 @@ Caveat on those numbers: both tiles were rebuilt after the closing test was labe
 matches a site and cases were re-linked to current sites by window overlap (51 of 53 on each tile). The re-link is
 a proxy; the eight "missed" cases are all pool `joined`, which is consistent with re-link drift.
 
-### 13c. Still open in the definition (not compute)
+### 13c. Open questions in the definition — all three resolved 2026-09-07, see §13e
 
 1. **The ice-edge touching rule** (§8d caveat): excluding any site that touches non-ice cost five Dunmire lakes on
    29_45 that sit 335–541 m *inside* the ice edge. Candidate softening: exclude only if the 50 m core touches
@@ -453,3 +453,59 @@ a proxy; the eight "missed" cases are all pool `joined`, which is consistent wit
 78.6 % of pixels** and `n_w50_toa` saturates too. Season-level work is unaffected (it only asks `≥ 1`), and the
 19_39 counts are fine (`n_obs` saturated on 0.96 % of pixels, `n_w50` max 55), but any scene-level use of the
 29_45 counts is invalid, and **the Greenland export must write uint16**.
+
+### 13e. The three open questions, decided (2026-09-07; Claude's calls, Josh's criteria: simple, explainable, repeatable, defensible, consistent with the literature)
+
+**1. The ice-edge rule → the ice-sheet exterior, not any contact.**
+
+> A site is excluded as ice-marginal if its outline reaches non-ice that is **connected to the outside of the ice
+> sheet**. Contact with a **nunatak** (non-ice enclosed by ice) does not exclude it.
+
+The diagnosis came first. The water mask is clipped to the ice domain *before* the closing (rule 6), so a site can
+only contain non-ice pixels where the closing bridged across them. The old rule ("any non-ice pixel") therefore fired
+whenever a lake's closing bridged a stray interior cell of the 150 m BedMachine mask — and on 29_45 that deleted
+three lakes Dunmire also mapped. Splitting non-ice into exterior and interior separates the two cases exactly:
+
+| | tile 29_45 | | | | tile 19_39 | | | |
+|---|---|---|---|---|---|---|---|---|
+| **rule** | excluded | sites | D2018 | D2019 | excluded | sites | D2018 | D2019 |
+| `any` (old) | 11 (20.5 km²) | 309 | 107/109 | 214/217 | 1 (0.1 km²) | 302 | 139/139 | 215/217 |
+| `core` (tried, rejected) | 0 | 320 | 108/109 | 217/217 | 0 | 303 | 139/139 | 215/217 |
+| **`exterior` (adopted)** | **4 (15.9 km²)** | **316** | **108/109** | **217/217** | **1 (0.1 km²)** | **302** | **139/139** | **215/217** |
+
+The evidence that the four excluded bodies are genuinely marginal and the seven kept ones are not: of the eleven the
+old rule deleted, only four were present in 2018 or 2019 at all (so Dunmire's silence about the other seven says
+nothing), and **three of those four match a Dunmire lake** — all three touch only nunataks. The three largest deleted
+bodies (9.65, 3.16, 2.97 km²) are the ones touching the exterior, and they appear only in 2016, 2017 and 2020,
+never in the big melt years 2019 or 2023 — not lake behaviour.
+
+`core` (the site's 50 m core must reach non-ice) was tried first and **rejected because it is vacuous**: erosion
+removes exactly the closing fringe that carries the only non-ice pixels, so it excluded nothing on either tile and
+amounted to having no ice-marginal guard at all, admitting 16 km² of large marginal water on 29_45.
+
+Implementation: `08g` now also writes `out/{TILE}_extnonice_150m.npy`, the non-ice connected to the outside,
+flood-filled from a window **padded by 10 km** beyond the tile so the answer does not depend on where the 100 km
+tile is cut (`PAD_KM`). On 29_45 that is 453 km² exterior against 265 km² of nunataks; on 19_39, 95 against 31.
+`08e` takes `TOUCH_RULE=exterior` (default) `|core|any`. **No new numeric constant** — the distinction is topological.
+
+**2. Rounding at 20 m → one principle, not three numbers.**
+
+> Every length in the definition is stated in **metres** and rounded **up** to whole pixels.
+
+Replaces three separate rounding decisions with one rule, and makes the definition resolution-independent: the same
+words give the same lake at 10 m and at 20 m. Rounding up is the conservative direction — it never admits an object
+smaller than the stated minimum. Concretely: the 50 m closing is 5 px at 10 m and 3 px (60 m) at 20 m; the 50 m core
+likewise; 0.05 km² is 500 px and 125 px; the 30 m swath trim is 3 px and 2 px (40 m).
+
+Consistency with the literature: the 50 m closing stays far more conservative than Dunmire's two 5×5 closings at
+30 m (which fill holes to ~250 m); 0.05 km² matches Dunmire 2021/2025 and How 2025 exactly, and is more permissive
+than Fan 2025's 4 500 m²; Selmes 2011's 0.125 km² floor is a MODIS pixel-size artefact, not a lake definition.
+
+Implemented in `08e`: `CLOSE_M`, `CORE_M`, `MIN_AREA_KM2` with `PX` read from the export transform, and the seven
+places that hardcoded 10 m are gone. **Regression check: with `TOUCH_RULE=any` the rewritten code reproduces both
+tiles bit-for-bit** (29_45 309 sites / 107 / 214; 19_39 302 / 139 / 215), so the metres rewrite changed nothing at 10 m.
+
+**3. `EDGE_PX=3`** stops being a separate decision — it is 30 m under rule 2. The re-export of both tiles remains an
+artefact fix, not a definition change.
+
+With these, §13a is the whole definition and nothing in it is open.
