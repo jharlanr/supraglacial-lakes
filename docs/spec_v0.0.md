@@ -397,14 +397,14 @@ A **lake site** is:
 | 3 | Swath-edge trim | erode valid data by **30 m** | `EDGE_PX=3` |
 | 4 | Scene QA | drop a scene whose tile water area exceeds 3× the median of the season's ten largest | `QA_FACTOR=3` |
 | 5 | Season composite | a pixel is water in a season if water in **≥ 1** kept scene | — |
-| 6 | Hole/neck closing | morphological closing, disk of radius **50 m** | `disk(5)` |
+| 6 | Hole/neck closing | morphological closing, disk of radius **50 m**, then re-clip to ice | `disk(5)` |
 | 7 | Minimum area | **0.05 km²** | `MIN_PX=500` |
 | 8 | Fill test | ≥ **50 %** of the closed blob must be actually-water pixels | `FILL=0.5` |
 | 9 | Core test | the outline must contain a disk **50 m** across | `binary_erosion(disk(2))` |
 | 10 | Site = union | union of the per-season outlines over the basis seasons | — |
 | 11 | Gap joining | appendage rule: join if gap ≤ **50 m**; or gap ≤ **250 m** and the smaller body < **0.2** of the larger | already in metres |
 | 12 | Split | **none** (this section) | — |
-| 13 | Domain | BedMachine v6 ice (grounded + floating); sites touching non-ice excluded | see §13c |
+| 13 | Domain | BedMachine v6 ice (grounded + floating); water is clipped to ice **and the closing may not bridge non-ice**. No ice-marginal exclusion — on ice is enough (§13e.1) | — |
 | 14 | Basis | seasons 2016–2025; new lakes append, serials never reused | §2 |
 
 Rules 3, 6, 7, 9 are the ones written in pixels today. **At 20 m, rules 6 and 9 are at the resolution limit**: a
@@ -456,37 +456,43 @@ a proxy; the eight "missed" cases are all pool `joined`, which is consistent wit
 
 ### 13e. The three open questions, decided (2026-09-07; Claude's calls, Josh's criteria: simple, explainable, repeatable, defensible, consistent with the literature)
 
-**1. The ice-edge rule → the ice-sheet exterior, not any contact.**
+**1. The ice-edge rule → there is none. A lake is water sitting ON ICE.** (Josh, 2026-09-07, overriding the
+exterior rule Claude proposed earlier the same day.)
 
-> A site is excluded as ice-marginal if its outline reaches non-ice that is **connected to the outside of the ice
-> sheet**. Contact with a **nunatak** (non-ice enclosed by ice) does not exclude it.
+> Josh: *"Why are we excluding any of them? It's fine if they are on the margin of the ice as long as they are
+> sitting ON ICE."*  No ice-marginal exclusion. Being near the edge is not disqualifying; being off the ice is.
 
-The diagnosis came first. The water mask is clipped to the ice domain *before* the closing (rule 6), so a site can
-only contain non-ice pixels where the closing bridged across them. The old rule ("any non-ice pixel") therefore fired
-whenever a lake's closing bridged a stray interior cell of the 150 m BedMachine mask — and on 29_45 that deleted
-three lakes Dunmire also mapped. Splitting non-ice into exterior and interior separates the two cases exactly:
+This is simpler than anything proposed and needs no new concept, because the water mask is **already clipped to the
+ice domain** before anything else happens — so "sitting on ice" is enforced at the pixel level and every site
+satisfies it by construction. The only way a site ever contained non-ice was that rule 6's closing bridged across
+it. That is fixed at the source rather than by vetoing objects:
 
-| | tile 29_45 | | | | tile 19_39 | | | |
-|---|---|---|---|---|---|---|---|---|
-| **rule** | excluded | sites | D2018 | D2019 | excluded | sites | D2018 | D2019 |
-| `any` (old) | 11 (20.5 km²) | 309 | 107/109 | 214/217 | 1 (0.1 km²) | 302 | 139/139 | 215/217 |
-| `core` (tried, rejected) | 0 | 320 | 108/109 | 217/217 | 0 | 303 | 139/139 | 215/217 |
-| **`exterior` (adopted)** | **4 (15.9 km²)** | **316** | **108/109** | **217/217** | **1 (0.1 km²)** | **302** | **139/139** | **215/217** |
+> **Rule 6 amended:** the closing is followed by re-applying the ice mask, so it can never bridge across non-ice.
 
-The evidence that the four excluded bodies are genuinely marginal and the seven kept ones are not: of the eleven the
-old rule deleted, only four were present in 2018 or 2019 at all (so Dunmire's silence about the other seven says
-nothing), and **three of those four match a Dunmire lake** — all three touch only nunataks. The three largest deleted
-bodies (9.65, 3.16, 2.97 km²) are the ones touching the exterior, and they appear only in 2016, 2017 and 2020,
-never in the big melt years 2019 or 2023 — not lake behaviour.
+A rock ridge or a fjord arm therefore separates two lakes instead of gluing them, and no site can span non-ice.
+`EXCLUDE_TOUCHING` defaults to 0; nothing is excluded.
 
-`core` (the site's 50 m core must reach non-ice) was tried first and **rejected because it is vacuous**: erosion
-removes exactly the closing fringe that carries the only non-ice pixels, so it excluded nothing on either tile and
-amounted to having no ice-marginal guard at all, admitting 16 km² of large marginal water on 29_45.
+| | tile 29_45 | | | tile 19_39 | | |
+|---|---|---|---|---|---|---|
+| **rule** | sites | D2018 | D2019 | sites | D2018 | D2019 |
+| `any` (the original) | 309 | 107/109 | 214/217 | 302 | 139/139 | 215/217 |
+| `exterior` (proposed, superseded) | 316 | 108/109 | 217/217 | 302 | 139/139 | 215/217 |
+| **none + closing confined to ice (adopted)** | **320** | **108/109** | **217/217** | **303** | **139/139** | **215/217** |
 
-Implementation: `08g` now also writes `out/{TILE}_extnonice_150m.npy`, the non-ice connected to the outside,
-flood-filled from a window **padded by 10 km** beyond the tile so the answer does not depend on where the 100 km
-tile is cut (`PAD_KM`). On 29_45 that is 453 km² exterior against 265 km² of nunataks; on 19_39, 95 against 31.
-`08e` takes `TOUCH_RULE=exterior` (default) `|core|any`. **No new numeric constant** — the distinction is topological.
+Best Dunmire recall of the three, the most sites, and the fewest rules. Confining the closing costs almost nothing
+in area (29_45: 345.9 km² against 346.0 with the closing unconfined) — it is a correctness guarantee, not a filter.
+
+Two consequences to state in the paper rather than hide:
+
+1. **Deliberate overlap with How 2025.** Without a margin exclusion, some water bodies at the ice edge will appear
+   both here and in the ice-marginal inventory. That is accepted: our criterion is physical (is it on ice?), not
+   territorial, and a reader can intersect the two inventories if they need a partition.
+2. Two earlier attempts are recorded as rejected so they are not re-proposed. `core` (the site's 50 m core must
+   reach non-ice) is **vacuous** — erosion removes exactly the closing fringe that carries the only non-ice pixels,
+   so it excluded nothing on either tile. `exterior` (non-ice connected to the outside of the ice sheet, as opposed
+   to a nunatak; `08g` still writes the mask, `08e` still takes `TOUCH_RULE=exterior`) worked as designed —
+   it kept all three Dunmire-matched lakes and dropped four bodies — but it drew a line Josh does not want drawn.
+   The machinery is left in place, unused, in case a future user wants a supraglacial-only partition.
 
 **2. Rounding at 20 m → one principle, not three numbers.**
 

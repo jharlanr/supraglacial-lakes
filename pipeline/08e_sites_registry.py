@@ -17,7 +17,7 @@ from shapely.ops import unary_union
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.colors import LightSource
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "out")
-TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); FILL = 0.5; MINW_PX = int(os.environ.get("MINW_PX", "0")); EXCLUDE_TOUCHING = os.environ.get("EXCLUDE_TOUCHING", "1") == "1"
+TILE = os.environ.get("TILE", "19_39"); JOIN_ALL_M = float(os.environ.get("JOIN_ALL_M", "50")); JOIN_APP_M = float(os.environ.get("JOIN_APP_M", "250")); APP_RATIO = float(os.environ.get("APP_RATIO", "0.2")); FILL = 0.5; MINW_PX = int(os.environ.get("MINW_PX", "0")); EXCLUDE_TOUCHING = os.environ.get("EXCLUDE_TOUCHING", "0") == "1"   # Josh 2026-09-07: no ice-marginal exclusion; on ice is enough
 # spec 13a: the definition is stated in METRES and every length is rounded UP to whole pixels, so the
 # same rule gives the same lake at 10 m and at 20 m.  TOUCH_RULE: "core" (spec 13c.1, the site's 50 m
 # core must reach non-ice) or "any" (the old rule: one fringe pixel of contact excluded the site).
@@ -54,7 +54,10 @@ else:
 ylab = {}; yrows = []
 for y in years:
     arr = np.load(os.path.join(OUT, f"{pref}{y}_n_w50_toa.npy")); arr = np.where(ice, arr, 0)
-    w = ndi.binary_closing(arr >= 1, structure=disk(R_CLOSE)); lab, _ = ndi.label(w, structure=S8)
+    # Josh 2026-09-07: a lake is water sitting ON ICE — being at the margin is fine.  The water mask is
+    # already clipped to ice, so the only way a site ever held non-ice was rule 6's closing bridging across
+    # it; re-applying the mask after the closing stops that, and then nothing needs excluding at all.
+    w = ndi.binary_closing(arr >= 1, structure=disk(R_CLOSE)) & ice; lab, _ = ndi.label(w, structure=S8)
     cnt = np.bincount(lab.ravel()); ids = np.flatnonzero(cnt >= MIN_PX); ids = ids[ids > 0]
     fill = ndi.mean((arr >= 1).astype(float), lab, ids); keep = ids[fill >= FILL]
     core = ndi.maximum(ndi.binary_erosion(np.isin(lab, keep), structure=disk(R_CORE)).astype(np.uint8), lab, keep).astype(bool); keep = keep[core]  # must contain a 50 m wide core (drops swath-edge lines)
