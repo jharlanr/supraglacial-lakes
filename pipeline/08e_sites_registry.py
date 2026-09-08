@@ -120,7 +120,13 @@ if EXCLUDE_TOUCHING:  # water that reaches rock or ocean is an ice-marginal lake
         e0 = np.where(np.isfinite(e0), e0, np.inf)      # a site with no core left: nothing to test, keep it
     else:
         e0 = ndi.minimum(edge, slab, ids)
-    touching = ids[e0 == 0]; ids = ids[e0 > 0]; slab = np.where(np.isin(slab, ids), slab, 0)
+    touching = ids[e0 == 0]
+    if len(touching):   # record what was dropped, so the decision can be eyeballed (17_marginal_check.py)
+        cy, cx = np.array(ndi.center_of_mass(slab > 0, slab, touching)).T
+        pd.DataFrame(dict(excluded_label=touching, area_km2=(spx[touching] * PX ** 2 * 1e-6).round(4),
+                          x3413=(x0 + (cx + 0.5) * PX).round(1), y3413=(y1 - (cy + 0.5) * PX).round(1),
+                          rule=TOUCH_RULE)).to_csv(os.path.join(OUT, f"09_excluded_{TILE}.csv"), index=False)
+    ids = ids[e0 > 0]; slab = np.where(np.isin(slab, ids), slab, 0)
     say(f"excluded {len(touching)} sites ({TOUCH_RULE} rule) reaching non-ice "
         f"({spx[touching].sum()*1e-4:.1f} km2); {len(ids)} sites remain")
 pd.DataFrame(joins).to_csv(os.path.join(OUT, f"09_joins_{TILE}.csv"), index=False)
