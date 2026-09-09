@@ -1,4 +1,9 @@
-"""Eyeball check for the ice-edge decision (spec 13e.1): the eleven sites on 29_45 that the OLD
+"""SUPERSEDED 2026-09-08 — kept as the evidence behind spec 13e.1, not as a current product.
+Josh ruled there is no ice-marginal exclusion at all (a lake is water sitting on ice), so the registry now
+excludes nothing and out/09_excluded_29_45.csv describes the earlier "exterior" rule. To regenerate, rerun 08e
+with EXCLUDE_TOUCHING=1 TOUCH_RULE=exterior first.
+
+Eyeball check for the ice-edge decision (spec 13e.1): the eleven sites on 29_45 that the OLD
 "any non-ice contact" rule deleted, shown on the persistence surface with the ice-sheet exterior and
 the nunataks drawn in.  Under the new exterior rule four are still excluded and seven come back --- this
 figure is so Josh can say whether that is the right cut.
